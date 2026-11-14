@@ -139,7 +139,7 @@ app.get('/api/me', auth(), (req, res) => res.json({ user: req.user }));
 
 // ---------- catálogos ----------
 app.get('/api/catalogos', auth(), ah(async (req, res) => {
-  const [combustibles, bombas, metodos, tanques, proveedores, clientes, despachadores] = await Promise.all([
+  const [combustibles, bombas, metodos, tanques, proveedores, clientes, despachadores, vehiculos] = await Promise.all([
     run('SELECT id_combustible, nombre, precio_vigente FROM dbo.combustible ORDER BY id_combustible'),
     run(`SELECT b.id_bomba, b.id_isla, b.numero, b.estado, c.id_combustible, c.nombre AS combustible, c.precio_vigente
          FROM dbo.bomba b JOIN dbo.tanque t ON t.id_tanque = b.id_tanque
@@ -150,8 +150,11 @@ app.get('/api/catalogos', auth(), ah(async (req, res) => {
     run('SELECT id_proveedor, nombre FROM dbo.proveedor ORDER BY nombre'),
     run('SELECT id_cliente, razon_social, rfc FROM dbo.cliente ORDER BY razon_social'),
     run('SELECT id_usuario, nombre FROM dbo.usuario WHERE id_rol = 1 AND activo = 1 ORDER BY nombre'),
+    run(`SELECT v.id_vehiculo, v.placas, v.marca_modelo, v.capacidad_tanque, v.odometro_actual, c.razon_social AS cliente
+         FROM dbo.vehiculo v LEFT JOIN dbo.cliente c ON c.id_cliente = v.id_cliente
+         WHERE v.activo = 1 ORDER BY v.placas`).catch(() => []),
   ]);
-  res.json({ combustibles, bombas, metodos, tanques, proveedores, clientes, despachadores });
+  res.json({ combustibles, bombas, metodos, tanques, proveedores, clientes, despachadores, vehiculos });
 }));
 
 // ---------- turnos ----------
@@ -213,17 +216,19 @@ app.post('/api/turnos/:id/cerrar', auth(R.SUP), ah(async (req, res) => {
 
 // ---------- ventas ----------
 app.get('/api/ventas', auth(), ah(async (req, res) => {
-  const { turno, fecha, estado, sinFactura } = req.query;
+  const { turno, fecha, estado, sinFactura, vehiculo } = req.query;
   if (fecha && !isDate(fecha)) bad('Fecha no válida.');
   const uid = req.user.rol === R.DESP ? req.user.id : null;
   const rows = await run(
     `SELECT TOP 200 v.id_venta, v.folio, v.fecha_hora, v.id_turno, v.litros, v.monto, v.estado,
+            v.odometro, v.tanque_lleno, vh.placas AS vehiculo_placas, vh.marca_modelo AS vehiculo_modelo,
             b.id_isla, b.numero AS bomba, c.nombre AS combustible, u.nombre AS despachador,
             (SELECT STRING_AGG(m.nombre + N' ' + FORMAT(p.monto, 'N2'), N', ')
                FROM dbo.pago_venta p JOIN dbo.metodo_pago m ON m.id_metodo = p.id_metodo
               WHERE p.id_venta = v.id_venta) AS pagos,
             CASE WHEN EXISTS (SELECT 1 FROM dbo.factura f WHERE f.id_venta = v.id_venta AND f.estado = N'Emitida') THEN 1 ELSE 0 END AS facturada
      FROM dbo.venta v
+     LEFT JOIN dbo.vehiculo vh ON vh.id_vehiculo = v.id_vehiculo
      JOIN dbo.bomba b ON b.id_bomba = v.id_bomba
      JOIN dbo.combustible c ON c.id_combustible = v.id_combustible
      JOIN dbo.turno t ON t.id_turno = v.id_turno
@@ -232,6 +237,7 @@ app.get('/api/ventas', auth(), ah(async (req, res) => {
        AND (@fecha IS NULL OR CAST(v.fecha_hora AS DATE) = CAST(@fecha AS DATE))
        AND (@estado IS NULL OR v.estado = @estado)
        AND (@uid IS NULL OR t.id_usuario = @uid)
+       AND (@veh IS NULL OR v.id_vehiculo = @veh)
        AND (@sin = 0 OR NOT EXISTS (SELECT 1 FROM dbo.factura f WHERE f.id_venta = v.id_venta))
      ORDER BY v.fecha_hora DESC, v.id_venta DESC`,
     {
@@ -239,6 +245,7 @@ app.get('/api/ventas', auth(), ah(async (req, res) => {
       fecha: [sql.VarChar(10), fecha || null],
       estado: [sql.NVarChar(12), ['Realizada', 'Cancelada'].includes(estado) ? estado : null],
       uid: [sql.Int, uid],
+      veh: [sql.Int, vehiculo ? int(vehiculo, 'Vehículo') : null],
       sin: [sql.Int, sinFactura === '1' ? 1 : 0],
     }
   );
@@ -251,6 +258,10 @@ app.post('/api/ventas', auth(R.DESP, R.SUP), ah(async (req, res) => {
   const litros = Math.round(dec(req.body.litros, 'Los litros', 5000) * 1000) / 1000;
   const pagosIn = Array.isArray(req.body.pagos) ? req.body.pagos : [];
   if (!pagosIn.length || pagosIn.length > 4) bad('Indica de 1 a 4 formas de pago.');
+
+  const idVehiculo = req.body.id_vehiculo ? int(req.body.id_vehiculo, 'Vehículo') : null;
+  const odometro = req.body.odometro ? int(req.body.odometro, 'Odómetro') : null;
+  const tanqueLleno = req.body.tanque_lleno !== false && req.body.tanque_lleno !== 0;
 
   const out = await withTx(async (tx) => {
     const [turno] = await run(
@@ -267,6 +278,22 @@ app.post('/api/ventas', auth(R.DESP, R.SUP), ah(async (req, res) => {
       { id: [sql.Int, idBomba] }, tx);
     if (!b) bad('La bomba no existe.');
 
+    let alertaVehiculo = null;
+    if (idVehiculo) {
+      const [veh] = await run('SELECT id_vehiculo, placas, capacidad_tanque, odometro_actual, activo FROM dbo.vehiculo WITH (UPDLOCK) WHERE id_vehiculo = @id', { id: [sql.Int, idVehiculo] }, tx);
+      if (!veh) bad('El vehículo no existe.');
+      if (!veh.activo) bad('El vehículo seleccionado está inactivo.');
+      if (odometro && odometro < veh.odometro_actual) {
+        bad(`El odómetro (${odometro.toLocaleString()} km) no puede ser menor que el actual (${veh.odometro_actual.toLocaleString()} km).`);
+      }
+      if (litros > Number(veh.capacidad_tanque) * 1.15) {
+        alertaVehiculo = `⚠️ Carga de ${litros} L excede capacidad de tanque (${veh.capacidad_tanque} L).`;
+      }
+      if (odometro && odometro > veh.odometro_actual) {
+        await run('UPDATE dbo.vehiculo SET odometro_actual = @o WHERE id_vehiculo = @id', { o: [sql.Int, odometro], id: [sql.Int, idVehiculo] }, tx);
+      }
+    }
+
     const monto = round2(litros * Number(b.precio_vigente));
     if (monto <= 0) bad('El monto calculado es cero.');
     const pagos = pagosIn.map((p) => ({ id_metodo: int(p.id_metodo, 'Método de pago'), monto: round2(dec(p.monto, 'El monto del pago')) }));
@@ -281,17 +308,20 @@ app.post('/api/ventas', auth(R.DESP, R.SUP), ah(async (req, res) => {
     const folio = `GC-${fecha}-${String(sig).padStart(4, '0')}`;
 
     const [v] = await run(
-      `INSERT INTO dbo.venta (id_turno, id_bomba, id_combustible, litros, monto, fecha_hora, folio)
+      `INSERT INTO dbo.venta (id_turno, id_bomba, id_combustible, litros, monto, fecha_hora, folio, id_vehiculo, odometro, tanque_lleno)
        OUTPUT INSERTED.id_venta, INSERTED.folio
-       VALUES (@t, @b, @c, @l, @m, ${MX_NOW}, @f)`,
-      { t: [sql.Int, idTurno], b: [sql.Int, idBomba], c: [sql.Int, b.id_combustible],
-        l: [sql.Decimal(10, 3), litros], m: [sql.Decimal(10, 2), monto], f: folio }, tx);
+       VALUES (@t, @b, @c, @l, @m, ${MX_NOW}, @f, @veh, @odo, @lleno)`,
+      {
+        t: [sql.Int, idTurno], b: [sql.Int, idBomba], c: [sql.Int, b.id_combustible],
+        l: [sql.Decimal(10, 3), litros], m: [sql.Decimal(10, 2), monto], f: folio,
+        veh: [sql.Int, idVehiculo], odo: [sql.Int, odometro], lleno: [sql.Bit, tanqueLleno ? 1 : 0]
+      }, tx);
     for (const p of pagos) {
       await run('INSERT INTO dbo.pago_venta (id_venta, id_metodo, monto) VALUES (@v, @m, @p)',
         { v: [sql.Int, v.id_venta], m: [sql.Int, p.id_metodo], p: [sql.Decimal(10, 2), p.monto] }, tx);
     }
-    await audit(tx, req.user, 'REGISTRAR_VENTA', 'venta', v.id_venta, null, `${folio}; ${litros} L; $${monto.toFixed(2)}`);
-    return { id_venta: v.id_venta, folio: v.folio, monto, litros };
+    await audit(tx, req.user, 'REGISTRAR_VENTA', 'venta', v.id_venta, null, `${folio}; ${litros} L; $${monto.toFixed(2)}${idVehiculo ? '; vehiculo=' + idVehiculo : ''}`);
+    return { id_venta: v.id_venta, folio: v.folio, monto, litros, alerta: alertaVehiculo };
   });
   res.status(201).json(out);
 }));
@@ -500,6 +530,139 @@ app.get('/api/bitacora', auth(R.GER), ah(async (req, res) => {
      ORDER BY b.id_bitacora DESC`));
 }));
 
+// ---------- vehículos y rendimiento de flotillas ----------
+app.get('/api/vehiculos', auth(), ah(async (req, res) => {
+  const rows = await run(`
+    SELECT v.id_vehiculo, v.placas, v.marca_modelo, v.capacidad_tanque, v.odometro_actual, v.activo, v.fecha_alta,
+           c.id_cliente, c.razon_social AS cliente,
+           COUNT(vt.id_venta) AS cargas_totales,
+           ISNULL(SUM(vt.litros), 0) AS litros_totales,
+           ISNULL(SUM(vt.monto), 0) AS gasto_total,
+           MIN(vt.odometro) AS odometro_min,
+           MAX(vt.odometro) AS odometro_max
+    FROM dbo.vehiculo v
+    LEFT JOIN dbo.cliente c ON c.id_cliente = v.id_cliente
+    LEFT JOIN dbo.venta vt ON vt.id_vehiculo = v.id_vehiculo AND vt.estado = N'Realizada'
+    GROUP BY v.id_vehiculo, v.placas, v.marca_modelo, v.capacidad_tanque, v.odometro_actual, v.activo, v.fecha_alta, c.id_cliente, c.razon_social
+    ORDER BY v.placas
+  `);
+
+  const list = rows.map((r) => {
+    const km = (r.odometro_max && r.odometro_min && r.odometro_max > r.odometro_min)
+      ? (r.odometro_max - r.odometro_min) : 0;
+    const l = Number(r.litros_totales) || 0;
+    const g = Number(r.gasto_total) || 0;
+    const kml = (km > 0 && l > 0) ? round2(km / l) : null;
+    const costoKm = (km > 0 && g > 0) ? round2(g / km) : null;
+    const l100 = kml ? round2(100 / kml) : null;
+    return {
+      ...r,
+      km_recorridos: km,
+      rendimiento_kml: kml,
+      costo_km: costoKm,
+      consumo_l100km: l100,
+    };
+  });
+  res.json(list);
+}));
+
+app.post('/api/vehiculos', auth(R.SUP, R.GER, R.CONT), ah(async (req, res) => {
+  const placas = String(req.body.placas || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+  const modelo = String(req.body.marca_modelo || '').trim();
+  const capacidad = dec(req.body.capacidad_tanque, 'La capacidad del tanque', 2000);
+  const odometro = req.body.odometro_actual != null ? Math.max(0, parseInt(req.body.odometro_actual, 10) || 0) : 0;
+  const idCliente = req.body.id_cliente ? int(req.body.id_cliente, 'Cliente') : null;
+
+  if (!placas || placas.length < 4 || placas.length > 15) bad('Placas no válidas (4-15 caracteres alfanuméricos).');
+  if (!modelo || modelo.length > 80) bad('Indica marca y modelo (máx 80 caracteres).');
+
+  const [v] = await run(`
+    INSERT INTO dbo.vehiculo (id_cliente, placas, marca_modelo, capacidad_tanque, odometro_actual)
+    OUTPUT INSERTED.id_vehiculo, INSERTED.placas
+    VALUES (@c, @p, @m, @cap, @o)
+  `, {
+    c: [sql.Int, idCliente],
+    p: placas,
+    m: modelo,
+    cap: [sql.Decimal(6, 2), capacidad],
+    o: [sql.Int, odometro],
+  });
+  await audit(pool, req.user, 'ALTA_VEHICULO', 'vehiculo', v.id_vehiculo, null, `${placas} (${modelo}); tanque=${capacidad}L; odo=${odometro}km`);
+  res.status(201).json(v);
+}));
+
+app.patch('/api/vehiculos/:id', auth(R.SUP, R.GER, R.CONT), ah(async (req, res) => {
+  const id = int(req.params.id, 'Vehículo');
+  const [ant] = await run('SELECT id_vehiculo, placas, activo FROM dbo.vehiculo WHERE id_vehiculo = @id', { id: [sql.Int, id] });
+  if (!ant) bad('El vehículo no existe.', 404);
+
+  if (typeof req.body.activo === 'boolean') {
+    await run('UPDATE dbo.vehiculo SET activo = @a WHERE id_vehiculo = @id', { a: [sql.Bit, req.body.activo ? 1 : 0], id: [sql.Int, id] });
+    await audit(pool, req.user, 'ESTADO_VEHICULO', 'vehiculo', id, ant.activo, req.body.activo ? 1 : 0);
+  }
+  res.json({ ok: true });
+}));
+
+app.get('/api/vehiculos/:id/historial', auth(), ah(async (req, res) => {
+  const id = int(req.params.id, 'Vehículo');
+  const [veh] = await run(
+    `SELECT v.*, c.razon_social AS cliente FROM dbo.vehiculo v LEFT JOIN dbo.cliente c ON c.id_cliente = v.id_cliente WHERE v.id_vehiculo = @id`,
+    { id: [sql.Int, id] });
+  if (!veh) bad('Vehículo no encontrado.', 404);
+
+  const cargas = await run(`
+    SELECT v.id_venta, v.folio, v.fecha_hora, v.litros, v.monto, v.odometro, v.tanque_lleno, v.estado,
+           c.nombre AS combustible, u.nombre AS despachador
+    FROM dbo.venta v
+    JOIN dbo.combustible c ON c.id_combustible = v.id_combustible
+    JOIN dbo.turno t ON t.id_turno = v.id_turno
+    JOIN dbo.usuario u ON u.id_usuario = t.id_usuario
+    WHERE v.id_vehiculo = @id AND v.estado = N'Realizada'
+    ORDER BY ISNULL(v.odometro, 0) ASC, v.fecha_hora ASC
+  `, { id: [sql.Int, id] });
+
+  let prevOdo = null;
+  const list = cargas.map((c) => {
+    const odo = c.odometro;
+    const l = Number(c.litros);
+    const m = Number(c.monto);
+    let kmRecorridos = null;
+    let kml = null;
+    let costoKm = null;
+    let l100 = null;
+    let alerta = null;
+
+    if (l > Number(veh.capacidad_tanque) * 1.1) {
+      alerta = '⚠️ Carga sospechosa: excede la capacidad del tanque.';
+    }
+
+    if (odo != null && prevOdo != null) {
+      kmRecorridos = odo - prevOdo;
+      if (kmRecorridos > 0 && l > 0 && c.tanque_lleno) {
+        kml = round2(kmRecorridos / l);
+        costoKm = round2(m / kmRecorridos);
+        l100 = round2((l / kmRecorridos) * 100);
+        if (kml < 6.5) alerta = (alerta ? alerta + ' ' : '') + '⚠️ Rendimiento inusualmente bajo (<6.5 km/L).';
+      } else if (kmRecorridos < 0) {
+        alerta = '⚠️ Kilometraje inconsistente (menor al previo).';
+      }
+    }
+    if (odo != null) prevOdo = odo;
+
+    return {
+      ...c,
+      odometro_anterior: prevOdo != null && kmRecorridos != null ? odo - kmRecorridos : null,
+      km_recorridos: kmRecorridos,
+      kml,
+      costo_km: costoKm,
+      l_100km: l100,
+      alerta,
+    };
+  }).reverse();
+
+  res.json({ vehiculo: veh, cargas: list });
+}));
+
 // ---------- errores ----------
 app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 app.use((err, req, res, next) => {
@@ -512,6 +675,52 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Error interno del servidor' });
 });
 
+async function initSchema() {
+  try {
+    await run(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'vehiculo' AND schema_id = SCHEMA_ID('dbo'))
+      BEGIN
+        CREATE TABLE dbo.vehiculo (
+          id_vehiculo INT IDENTITY(1,1) NOT NULL,
+          id_cliente INT NULL,
+          placas VARCHAR(15) NOT NULL,
+          marca_modelo VARCHAR(80) NOT NULL,
+          capacidad_tanque DECIMAL(6,2) NOT NULL DEFAULT 50.00,
+          odometro_actual INT NOT NULL DEFAULT 0,
+          activo BIT NOT NULL DEFAULT 1,
+          fecha_alta DATETIME2(0) NOT NULL DEFAULT CAST(SYSDATETIMEOFFSET() AT TIME ZONE 'Central Standard Time (Mexico)' AS DATETIME2(0)),
+          CONSTRAINT pk_vehiculo PRIMARY KEY (id_vehiculo),
+          CONSTRAINT uq_vehiculo_placas UNIQUE (placas),
+          CONSTRAINT fk_vehiculo_cliente FOREIGN KEY (id_cliente) REFERENCES dbo.cliente(id_cliente),
+          CONSTRAINT ck_vehiculo_capacidad CHECK (capacidad_tanque > 0),
+          CONSTRAINT ck_vehiculo_odometro CHECK (odometro_actual >= 0)
+        );
+      END;
+
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE name = 'id_vehiculo' AND object_id = OBJECT_ID('dbo.venta'))
+      BEGIN
+        ALTER TABLE dbo.venta ADD id_vehiculo INT NULL CONSTRAINT fk_venta_vehiculo FOREIGN KEY REFERENCES dbo.vehiculo(id_vehiculo);
+      END;
+
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE name = 'odometro' AND object_id = OBJECT_ID('dbo.venta'))
+      BEGIN
+        ALTER TABLE dbo.venta ADD odometro INT NULL;
+      END;
+
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE name = 'tanque_lleno' AND object_id = OBJECT_ID('dbo.venta'))
+      BEGIN
+        ALTER TABLE dbo.venta ADD tanque_lleno BIT NOT NULL DEFAULT 1;
+      END;
+    `);
+    console.log('Esquema de vehículos verificado/inicializado en Azure SQL.');
+  } catch (e) {
+    console.warn('Aviso al verificar esquema de vehículos:', e.message);
+  }
+}
+
 pool.connect()
-  .then(() => app.listen(PORT, () => console.log(`GasControl en http://localhost:${PORT}`)))
+  .then(async () => {
+    await initSchema();
+    app.listen(PORT, () => console.log(`GasControl en http://localhost:${PORT}`));
+  })
   .catch((e) => { console.error('No se pudo conectar a Azure SQL:', e.message); process.exit(1); });

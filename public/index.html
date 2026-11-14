@@ -148,10 +148,29 @@ function table(cols, rows, empty = 'Sin registros') {
 }
 const opts = (arr, v, l, sel) => arr.map((x) => `<option value="${esc(x[v])}"${String(x[v]) === String(sel) ? ' selected' : ''}>${esc(typeof l === 'function' ? l(x) : x[l])}</option>`).join('');
 
+function exportCSV(filename, cols, rows) {
+  const header = cols.map((c) => `"${(c.h || '').replace(/"/g, '""')}"`).join(',');
+  const lines = rows.map((r) => cols.map((c) => {
+    let val = c.r ? c.r(r) : r[c.k];
+    if (val == null) val = '';
+    val = String(val).replace(/<[^>]*>/g, '').trim();
+    return `"${val.replace(/"/g, '""')}"`;
+  }).join(','));
+  const csvContent = '\uFEFF' + [header, ...lines].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ---------- navegación ----------
 const NAV = [
   { id: 'dashboard', t: 'Panel', roles: [2, 3, 4, 5] },
   { id: 'ventas', t: 'Ventas', roles: [1, 2, 3, 4, 5] },
+  { id: 'vehiculos', t: 'Flotillas y Vehículos', roles: [1, 2, 3, 4, 5] },
   { id: 'turnos', t: 'Turnos y cortes', roles: [1, 2, 3, 5] },
   { id: 'inventario', t: 'Inventario', roles: [2, 3, 4, 5] },
   { id: 'facturas', t: 'Facturación', roles: [3, 4, 5] },
@@ -216,6 +235,9 @@ pages.ventas = async () => {
   const [c, turnos] = await Promise.all([cat(true), can(1, 2) ? api('/turnos?estado=Abierto') : Promise.resolve([])]);
   const puedeVender = can(1, 2) && turnos.length;
   const bombas = c.bombas.filter((b) => b.estado === 'Activa');
+  const vehiculos = c.vehiculos || [];
+  let ultimasVentas = [];
+
   $('#view').innerHTML = `
     <h2>Ventas</h2>
     ${can(1, 2) ? `<div class="card"><h3>Registrar venta</h3>
@@ -225,12 +247,15 @@ pages.ventas = async () => {
         <div><label>Litros</label><input id="vl" type="number" step="0.001" min="0.001" required></div>
         <div><label>Forma de pago</label><select id="vm">${opts(c.metodos, 'id_metodo', 'nombre')}</select></div>
         <div><label>Total</label><input id="vmonto" disabled value="$0.00"></div>
-        <div class="btnbox"><button class="btn">Registrar</button></div></form>`
+        <div><label>Vehículo / Flotilla (opcional)</label><select id="vveh"><option value="">-- Particular / Sin registro --</option>${opts(vehiculos, 'id_vehiculo', (v) => `${v.placas} · ${v.marca_modelo} (${num(v.odometro_actual, 0)} km)`)}</select></div>
+        <div><label>Odómetro (km)</label><input id="vodo" type="number" step="1" min="0" placeholder="Km actual"></div>
+        <div style="flex:0 0 110px;align-self:center;padding-top:14px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.85rem"><input type="checkbox" id="vlleno" checked> Tanque lleno</label></div>
+        <div class="btnbox" style="padding-top:14px"><button class="btn">Registrar</button></div></form>`
       : '<div class="muted">No hay turnos abiertos. Un supervisor debe abrir un turno en “Turnos y cortes”.</div>'}</div>` : ''}
     <div class="card"><div class="row" style="margin-bottom:10px">
       <div><label>Fecha</label><input type="date" id="ff"></div>
       <div><label>Estado</label><select id="fe"><option value="">Todos</option><option>Realizada</option><option>Cancelada</option></select></div>
-      <div class="btnbox"><button class="btn sec" id="fb">Filtrar</button></div></div>
+      <div class="btnbox"><button class="btn sec" id="fb">Filtrar</button> <button class="btn sec" id="fexport">Descargar CSV</button></div></div>
       <div id="vlist"></div></div>`;
 
   const calc = () => {
@@ -240,35 +265,232 @@ pages.ventas = async () => {
   };
   if (puedeVender) {
     $('#vl').oninput = calc; $('#vb').onchange = calc;
+    $('#vveh').onchange = () => {
+      const v = vehiculos.find((x) => x.id_vehiculo == $('#vveh').value);
+      if (v && $('#vodo')) {
+        $('#vodo').placeholder = `Mín: ${num(v.odometro_actual, 0)} km`;
+      }
+    };
     $('#fv').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
       const b = c.bombas.find((x) => x.id_bomba == $('#vb').value);
       const litros = Number($('#vl').value);
       const monto = Math.round(litros * Number(b.precio_vigente) * 100) / 100;
-      const r = await api('/ventas', { method: 'POST', body: { id_turno: +$('#vt').value, id_bomba: +$('#vb').value, litros, pagos: [{ id_metodo: +$('#vm').value, monto }] } });
+      const vId = +$('#vveh').value || null;
+      const odo = +$('#vodo').value || null;
+      const lleno = $('#vlleno').checked;
+      const r = await api('/ventas', {
+        method: 'POST',
+        body: {
+          id_turno: +$('#vt').value, id_bomba: +$('#vb').value, litros,
+          pagos: [{ id_metodo: +$('#vm').value, monto }],
+          id_vehiculo: vId, odometro: odo, tanque_lleno: lleno
+        }
+      });
       toast(`Venta ${r.folio} registrada por ${money(r.monto)}`);
-      $('#vl').value = ''; calc(); loadVentas();
+      if (r.alerta) toast(r.alerta, true);
+      $('#vl').value = ''; $('#vodo').value = ''; calc();
+      await cat(true); loadVentas();
     }); };
   }
   async function loadVentas() {
     const qs = new URLSearchParams();
     if ($('#ff').value) qs.set('fecha', $('#ff').value);
     if ($('#fe').value) qs.set('estado', $('#fe').value);
-    const rows = await api('/ventas?' + qs);
+    ultimasVentas = await api('/ventas?' + qs);
     $('#vlist').innerHTML = table([
       { h: 'Folio', k: 'folio' }, { h: 'Fecha', k: 'fecha_hora' }, { h: 'Turno', k: 'id_turno' },
+      { h: 'Vehículo / Km', r: (r) => r.vehiculo_placas ? `<b>${esc(r.vehiculo_placas)}</b><br><small class="muted">${r.odometro ? num(r.odometro, 0) + ' km' : ''} ${r.tanque_lleno ? '' : '(Parcial)'}</small>` : '<span class="muted">—</span>' },
       { h: 'Bomba', r: (r) => `I${r.id_isla}-B${r.bomba}` }, { h: 'Combustible', k: 'combustible' },
       { h: 'Litros', n: 1, r: (r) => num(r.litros, 3) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) },
       { h: 'Pago', k: 'pagos' }, { h: 'Despachador', k: 'despachador' }, { h: 'Estado', r: (r) => tag(r.estado) },
       ...(can(2) ? [{ h: '', r: (r) => r.estado === 'Realizada' ? `<button class="btn danger sm" data-c="${r.id_venta}">Cancelar</button>` : '' }] : []),
-    ], rows);
+    ], ultimasVentas);
   }
   $('#fb').onclick = (e) => act(e.target, loadVentas);
+  $('#fexport').onclick = () => {
+    if (!ultimasVentas.length) return toast('No hay datos para exportar', true);
+    exportCSV('ventas_gascontrol.csv', [
+      { h: 'Folio', k: 'folio' }, { h: 'Fecha', k: 'fecha_hora' }, { h: 'Turno', k: 'id_turno' },
+      { h: 'Placas', k: 'vehiculo_placas' }, { h: 'Modelo', k: 'vehiculo_modelo' }, { h: 'Odometro_Km', k: 'odometro' },
+      { h: 'Tanque_Lleno', r: (r) => r.tanque_lleno ? 'SI' : 'NO' }, { h: 'Combustible', k: 'combustible' },
+      { h: 'Litros', k: 'litros' }, { h: 'Monto', k: 'monto' }, { h: 'Despachador', k: 'despachador' }, { h: 'Estado', k: 'estado' }
+    ], ultimasVentas);
+    toast('Archivo CSV generado y descargado');
+  };
   $('#vlist').onclick = (e) => {
     const b = e.target.closest('[data-c]'); if (!b) return;
     if (!confirm('¿Cancelar esta venta? Los litros regresan al tanque.')) return;
     act(b, async () => { await api(`/ventas/${b.dataset.c}/cancelar`, { method: 'POST' }); toast('Venta cancelada'); await loadVentas(); });
   };
   await loadVentas();
+};
+
+pages.vehiculos = async () => {
+  const [vehiculos, c] = await Promise.all([api('/vehiculos'), cat(true)]);
+  const clientes = c.clientes || [];
+
+  const totalVeh = vehiculos.length;
+  const kmTotales = vehiculos.reduce((a, v) => a + (v.km_recorridos || 0), 0);
+  const litrosTotales = vehiculos.reduce((a, v) => a + (Number(v.litros_totales) || 0), 0);
+  const gastoTotal = vehiculos.reduce((a, v) => a + (Number(v.gasto_total) || 0), 0);
+  const rendProm = (kmTotales > 0 && litrosTotales > 0) ? (kmTotales / litrosTotales) : null;
+  const costoProm = (kmTotales > 0 && gastoTotal > 0) ? (gastoTotal / kmTotales) : null;
+
+  $('#view').innerHTML = `
+    <h2>Flotillas y Control de Vehículos</h2>
+    <div class="grid" style="margin-bottom:16px">
+      <div class="kpi"><small>Vehículos registrados</small><b>${totalVeh}</b></div>
+      <div class="kpi"><small>Km recorridos (flotilla)</small><b>${num(kmTotales, 0)} km</b></div>
+      <div class="kpi"><small>Litros consumidos</small><b>${num(litrosTotales, 1)} L</b></div>
+      <div class="kpi"><small>Gasto total acumulado</small><b>${money(gastoTotal)}</b></div>
+      <div class="kpi"><small>Rendimiento prom. flotilla</small><b style="color:var(--brand2)">${rendProm ? num(rendProm, 2) + ' km/L' : '—'}</b></div>
+      <div class="kpi"><small>Costo prom. por kilómetro</small><b>${costoProm ? money(costoProm) + '/km' : '—'}</b></div>
+    </div>
+
+    ${can(2, 3, 4, 5) ? `
+    <div class="card">
+      <details id="detNewVeh"><summary class="muted" style="cursor:pointer;font-weight:600"><b>+ Registrar nuevo vehículo / unidad de flotilla</b></summary>
+        <form id="fveh" class="row" style="margin-top:12px">
+          <div><label>Placas</label><input id="vp" maxlength="15" placeholder="Ej: ABC-1234" required style="text-transform:uppercase"></div>
+          <div><label>Marca y Modelo</label><input id="vm" maxlength="80" placeholder="Ej: Nissan NP300 2022" required></div>
+          <div><label>Capacidad Tanque (Litros)</label><input id="vc" type="number" step="0.5" min="1" value="50" required></div>
+          <div><label>Odómetro inicial (km)</label><input id="vo" type="number" step="1" min="0" value="0"></div>
+          <div><label>Cliente / Empresa (opcional)</label><select id="vcli"><option value="">-- Particular / Sin asignar --</option>${opts(clientes, 'id_cliente', 'razon_social')}</select></div>
+          <div class="btnbox" style="padding-top:14px"><button class="btn">Guardar Vehículo</button></div>
+        </form>
+      </details>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="row" style="margin-bottom:12px;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Parque vehicular y rendimiento</h3>
+        <button class="btn sec sm" id="btnExportVeh">Descargar Flotilla CSV</button>
+      </div>
+      <div id="vehList">
+        ${table([
+          { h: 'Placas', r: (r) => `<b>${esc(r.placas)}</b>` },
+          { h: 'Marca / Modelo', k: 'marca_modelo' },
+          { h: 'Cliente / Empresa', r: (r) => r.cliente ? esc(r.cliente) : '<span class="muted">Particular</span>' },
+          { h: 'Tanque', n: 1, r: (r) => num(r.capacidad_tanque, 1) + ' L' },
+          { h: 'Odómetro actual', n: 1, r: (r) => num(r.odometro_actual, 0) + ' km' },
+          { h: 'Cargas', n: 1, r: (r) => r.cargas_totales },
+          { h: 'Rendimiento', n: 1, r: (r) => r.rendimiento_kml ? `<b style="color:var(--brand2)">${num(r.rendimiento_kml, 2)} km/L</b>` : '<span class="muted">Calculando…</span>' },
+          { h: 'Costo/km', n: 1, r: (r) => r.costo_km ? `${money(r.costo_km)}/km` : '<span class="muted">—</span>' },
+          { h: 'Consumo', n: 1, r: (r) => r.consumo_l100km ? `${num(r.consumo_l100km, 2)} L/100km` : '<span class="muted">—</span>' },
+          { h: 'Estado', r: (r) => tag(r.activo ? 'Activa' : 'Inactiva').replace('Activa', 'Activo').replace('Inactiva', 'Inactivo') },
+          { h: 'Acción', r: (r) => `<button class="btn sec sm" data-hveh="${r.id_vehiculo}">Historial</button>` }
+        ], vehiculos, 'No hay vehículos registrados en el sistema')}
+      </div>
+    </div>
+    <div id="historialBox"></div>
+  `;
+
+  if ($('#fveh')) {
+    $('#fveh').onsubmit = (e) => {
+      e.preventDefault();
+      act(e.submitter, async () => {
+        await api('/vehiculos', {
+          method: 'POST',
+          body: {
+            placas: $('#vp').value,
+            marca_modelo: $('#vm').value,
+            capacidad_tanque: +$('#vc').value,
+            odometro_actual: +$('#vo').value,
+            id_cliente: +$('#vcli').value || null
+          }
+        });
+        toast('Vehículo registrado exitosamente');
+        await cat(true);
+        go('vehiculos');
+      });
+    };
+  }
+
+  $('#btnExportVeh').onclick = () => {
+    if (!vehiculos.length) return toast('No hay vehículos para exportar', true);
+    exportCSV('flotilla_rendimiento.csv', [
+      { h: 'Placas', k: 'placas' },
+      { h: 'Marca_Modelo', k: 'marca_modelo' },
+      { h: 'Cliente_Empresa', k: 'cliente' },
+      { h: 'Capacidad_Tanque_L', k: 'capacidad_tanque' },
+      { h: 'Odometro_Actual_Km', k: 'odometro_actual' },
+      { h: 'Cargas_Totales', k: 'cargas_totales' },
+      { h: 'Km_Recorridos', k: 'km_recorridos' },
+      { h: 'Litros_Totales', k: 'litros_totales' },
+      { h: 'Gasto_Total', k: 'gasto_total' },
+      { h: 'Rendimiento_kmL', k: 'rendimiento_kml' },
+      { h: 'Costo_Por_Km', k: 'costo_km' },
+      { h: 'L_Por_100km', k: 'consumo_l100km' },
+      { h: 'Activo', r: (r) => r.activo ? 'SI' : 'NO' }
+    ], vehiculos);
+    toast('Reporte de flotilla descargado');
+  };
+
+  $('#view').onclick = async (e) => {
+    const btnHist = e.target.closest('[data-hveh]');
+    if (!btnHist) return;
+    const vId = btnHist.dataset.hveh;
+    $('#historialBox').innerHTML = '<div class="card"><div class="empty">Cargando historial de rendimiento…</div></div>';
+    try {
+      const data = await api(`/vehiculos/${vId}/historial`);
+      const v = data.vehiculo;
+      const cargas = data.cargas;
+
+      $('#historialBox').innerHTML = `
+        <div class="card" style="border-top:3px solid var(--brand2);margin-top:16px">
+          <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div>
+              <h3 style="margin:0">Historial y cálculo de rendimiento · ${esc(v.placas)}</h3>
+              <small class="muted">${esc(v.marca_modelo)} ${v.cliente ? '· ' + esc(v.cliente) : ''} · Tanque: ${num(v.capacidad_tanque, 1)} L</small>
+            </div>
+            <div class="btnbox">
+              <button class="btn sec sm" id="btnExportSingleHist">Descargar Historial CSV</button>
+              <button class="btn sec sm" id="btnCloseHist">Cerrar</button>
+            </div>
+          </div>
+          ${table([
+            { h: 'Folio', k: 'folio' },
+            { h: 'Fecha', k: 'fecha_hora' },
+            { h: 'Combustible', k: 'combustible' },
+            { h: 'Litros', n: 1, r: (r) => num(r.litros, 3) },
+            { h: 'Monto', n: 1, r: (r) => money(r.monto) },
+            { h: 'Odómetro', n: 1, r: (r) => r.odometro ? num(r.odometro, 0) + ' km' : '—' },
+            { h: 'Distancia', n: 1, r: (r) => r.km_recorridos ? num(r.km_recorridos, 0) + ' km' : '—' },
+            { h: 'Rendimiento (km/L)', n: 1, r: (r) => r.kml ? `<b style="color:var(--brand2)">${num(r.kml, 2)} km/L</b>` : (r.tanque_lleno ? '<small class="muted">Primer registro</small>' : '<small class="muted">Carga parcial</small>') },
+            { h: 'Costo por km', n: 1, r: (r) => r.costo_km ? `${money(r.costo_km)}/km` : '—' },
+            { h: 'Consumo', n: 1, r: (r) => r.l_100km ? `${num(r.l_100km, 2)} L/100km` : '—' },
+            { h: 'Alertas', r: (r) => r.alerta ? `<span class="tag t-bad">${esc(r.alerta)}</span>` : '<span class="tag t-ok">Normal</span>' },
+            { h: 'Despachador', k: 'despachador' }
+          ], cargas, 'No hay cargas registradas para este vehículo')}
+        </div>
+      `;
+      $('#historialBox').scrollIntoView({ behavior: 'smooth' });
+
+      $('#btnExportSingleHist').onclick = () => {
+        if (!cargas.length) return toast('No hay registros', true);
+        exportCSV(`historial_${v.placas}.csv`, [
+          { h: 'Folio', k: 'folio' },
+          { h: 'Fecha', k: 'fecha_hora' },
+          { h: 'Combustible', k: 'combustible' },
+          { h: 'Litros', k: 'litros' },
+          { h: 'Monto', k: 'monto' },
+          { h: 'Odometro_Km', k: 'odometro' },
+          { h: 'Distancia_Km', k: 'km_recorridos' },
+          { h: 'Rendimiento_kmL', k: 'kml' },
+          { h: 'Costo_Por_Km', k: 'costo_km' },
+          { h: 'Consumo_L100km', k: 'l_100km' },
+          { h: 'Alerta', k: 'alerta' },
+          { h: 'Despachador', k: 'despachador' }
+        ], cargas);
+        toast(`Historial de ${v.placas} descargado en CSV`);
+      };
+      $('#btnCloseHist').onclick = () => {
+        $('#historialBox').innerHTML = '';
+      };
+    } catch (err) {
+      toast(err.message, true);
+    }
+  };
 };
 
 pages.turnos = async () => {
@@ -377,12 +599,13 @@ pages.facturas = async () => {
 pages.reportes = async () => {
   const hasta = today();
   const desde = new Date(Date.now() - 6 * 3600e3 - 30 * 864e5).toISOString().slice(0, 10);
+  let repData = { a: [], d: [], m: [], k: [] };
   $('#view').innerHTML = `
     <h2>Reportes</h2>
     <div class="card"><div class="row">
       <div><label>Desde</label><input type="date" id="rd" value="${desde}"></div>
       <div><label>Hasta</label><input type="date" id="rh" value="${hasta}"></div>
-      <div class="btnbox"><button class="btn" id="rb">Consultar</button></div></div></div>
+      <div class="btnbox"><button class="btn" id="rb">Consultar</button> <button class="btn sec" id="btnExportRep">Descargar Resumen CSV</button></div></div></div>
     <div id="rep"></div>`;
   async function load() {
     const qs = `?desde=${$('#rd').value}&hasta=${$('#rh').value}`;
@@ -390,6 +613,7 @@ pages.reportes = async () => {
       api('/reportes/ventas-dia' + qs), api('/reportes/despachador' + qs), api('/reportes/metodo-pago' + qs), api('/reportes/kpi' + qs),
       can(2, 3) ? api('/reportes/cortes' + qs) : Promise.resolve(null),
     ]);
+    repData = { a, d, m, k, cs };
     $('#rep').innerHTML = `
       <div class="card"><h3>Ventas por día y combustible</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Combustible', k: 'combustible' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }], a)}</div>
       <div class="card"><h3>Ventas por despachador y turno</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }, { h: 'Ticket prom.', n: 1, r: (r) => money(r.ticket_promedio) }], d)}</div>
@@ -398,6 +622,17 @@ pages.reportes = async () => {
       ${cs ? `<div class="card"><h3>Cortes de caja</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Supervisor', k: 'supervisor' }, { h: 'Teórico', n: 1, r: (r) => money(r.total_teorico) }, { h: 'Real', n: 1, r: (r) => money(r.total_real) }, { h: 'Diferencia', n: 1, r: (r) => money(r.diferencia) }], cs)}</div>` : ''}`;
   }
   $('#rb').onclick = (e) => act(e.target, load);
+  $('#btnExportRep').onclick = () => {
+    if (!repData.a.length) return toast('No hay datos para exportar', true);
+    exportCSV(`reporte_ventas_${$('#rd').value}_al_${$('#rh').value}.csv`, [
+      { h: 'Fecha', k: 'fecha' },
+      { h: 'Combustible', k: 'combustible' },
+      { h: 'Num_Ventas', k: 'num_ventas' },
+      { h: 'Litros_Vendidos', k: 'litros' },
+      { h: 'Monto_Total', k: 'monto' }
+    ], repData.a);
+    toast('Reporte descargado en CSV');
+  };
   await load();
 };
 
