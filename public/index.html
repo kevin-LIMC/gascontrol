@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GasControl</title>
+<style>
+  :root{--bg:#f4f6f9;--card:#fff;--ink:#1c2430;--mut:#6b7686;--line:#e3e8ef;--brand:#0b6b57;--brand2:#0f8a71;--warn:#b45309;--bad:#b42318;--ok:#067647;--side:#12261f}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  h1,h2,h3{margin:0 0 .6rem}
+  h2{font-size:1.25rem} h3{font-size:1rem;color:var(--mut);font-weight:600}
+  button,input,select{font:inherit}
+  .hide{display:none!important}
+  /* login */
+  #login{min-height:100vh;display:grid;place-items:center;padding:16px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:360px;box-shadow:0 8px 30px #0001}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.3rem;color:var(--brand);margin-bottom:18px}
+  .logo{width:34px;height:34px;border-radius:9px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:18px}
+  label{display:block;font-size:.82rem;color:var(--mut);margin:10px 0 4px}
+  input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  input:focus,select:focus{outline:2px solid #0f8a7155;border-color:var(--brand2)}
+  .btn{background:var(--brand);color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
+  .btn:hover{background:var(--brand2)} .btn:disabled{opacity:.6;cursor:wait}
+  .btn.sec{background:#fff;color:var(--ink);border:1px solid var(--line)} .btn.sec:hover{background:#f1f4f8}
+  .btn.danger{background:var(--bad)} .btn.sm{padding:4px 9px;font-size:.8rem}
+  /* layout */
+  #app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+  aside{background:var(--side);color:#cfe3db;padding:18px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+  aside .brand{color:#fff;padding:0 8px}
+  nav{flex:1;margin-top:6px}
+  nav a{display:block;padding:9px 12px;border-radius:8px;color:#cfe3db;text-decoration:none;cursor:pointer;margin-bottom:2px}
+  nav a:hover{background:#ffffff14} nav a.on{background:var(--brand);color:#fff}
+  .me{font-size:.82rem;padding:8px;border-top:1px solid #ffffff22}
+  .me b{color:#fff;display:block}
+  main{padding:24px;max-width:1200px;width:100%}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .kpi small{color:var(--mut);display:block} .kpi b{font-size:1.5rem}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end} .row>div{flex:1;min-width:140px}
+  .row>.btnbox{flex:0 0 auto;min-width:0}
+  .tw{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:.88rem}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{color:var(--mut);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;background:#fafbfd}
+  td.n,th.n{text-align:right}
+  .tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.75rem;font-weight:600}
+  .t-ok{background:#d1fadf;color:var(--ok)} .t-bad{background:#fee4e2;color:var(--bad)} .t-warn{background:#fef0c7;color:var(--warn)} .t-gray{background:#eef1f5;color:var(--mut)}
+  .bar{height:10px;background:#eef1f5;border-radius:99px;overflow:hidden;margin:8px 0 4px}
+  .bar i{display:block;height:100%;background:var(--brand2)} .bar.low i{background:#d92d20}
+  .muted{color:var(--mut)} .empty{padding:18px;text-align:center;color:var(--mut)}
+  #toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:9}
+  .toast{background:#12261f;color:#fff;padding:10px 14px;border-radius:9px;max-width:360px;box-shadow:0 6px 20px #0004}
+  .toast.err{background:var(--bad)}
+  #err{color:var(--bad);font-size:.85rem;margin-top:10px;min-height:1.2em}
+  #menuBtn{display:none}
+  @media(max-width:800px){
+    #app{grid-template-columns:1fr}
+    aside{position:fixed;inset:0 25% 0 0;z-index:5;transform:translateX(-100%);transition:.2s;height:100%}
+    aside.open{transform:none} main{padding:14px}
+    #menuBtn{display:inline-block;margin-bottom:10px}
+  }
+</style>
+</head>
+<body>
+
+<section id="login">
+  <form class="box" id="loginForm">
+    <div class="brand"><span class="logo">⛽</span> GasControl</div>
+    <label for="u">Usuario</label><input id="u" autocomplete="username" required>
+    <label for="p">Contraseña</label><input id="p" type="password" autocomplete="current-password" required>
+    <button class="btn" style="width:100%;margin-top:16px">Entrar</button>
+    <div id="err"></div>
+  </form>
+</section>
+
+<div id="app" class="hide">
+  <aside id="side">
+    <div class="brand"><span class="logo">⛽</span> GasControl</div>
+    <nav id="nav"></nav>
+    <div class="me"><b id="meName"></b><span id="meRol" class="muted"></span><br><a href="#" id="logout" style="color:#9fd5c5">Cerrar sesión</a></div>
+  </aside>
+  <main>
+    <button class="btn sec" id="menuBtn">☰ Menú</button>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = (n) => Number(n || 0).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+const num = (n, d = 2) => Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmt = (v) => {
+  if (v == null) return '<span class="muted">—</span>';
+  if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT/.test(v)) {
+    if (v.startsWith('1970-01-01')) return v.slice(11, 16);
+    return v.endsWith('T00:00:00.000Z') ? v.slice(0, 10) : v.replace('T', ' ').slice(0, 16);
+  }
+  return esc(v);
+};
+const tag = (t) => {
+  const m = { Realizada: 'ok', Emitida: 'ok', Abierto: 'ok', Activa: 'ok', OK: 'ok', Cancelada: 'bad', Falla: 'bad', REORDEN: 'bad', Cerrado: 'gray', Inactiva: 'warn' };
+  return `<span class="tag t-${m[t] || 'gray'}">${esc(t)}</span>`;
+};
+const today = () => new Date(Date.now() - 6 * 3600e3).toISOString().slice(0, 10); // aprox. hora de CDMX
+
+let token = sessionStorage.getItem('gc_token');
+let me = JSON.parse(sessionStorage.getItem('gc_user') || 'null');
+let CAT = null;
+const cat = async (force) => (CAT && !force ? CAT : (CAT = await api('/catalogos')));
+
+async function api(path, opt = {}) {
+  const r = await fetch('/api' + path, {
+    method: opt.method || 'GET',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: opt.body ? JSON.stringify(opt.body) : undefined,
+  });
+  let d = null;
+  try { d = await r.json(); } catch (_) {}
+  if (r.status === 401 && path !== '/login') { logout(); throw new Error('Sesión expirada'); }
+  if (!r.ok) throw new Error((d && d.error) || 'Error ' + r.status);
+  return d;
+}
+function toast(msg, err) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : '');
+  t.textContent = msg;
+  $('#toast').appendChild(t);
+  setTimeout(() => t.remove(), err ? 6000 : 3500);
+}
+// ejecuta una acción mostrando errores como aviso
+async function act(btn, fn) {
+  if (btn) btn.disabled = true;
+  try { await fn(); } catch (e) { toast(e.message, true); } finally { if (btn) btn.disabled = false; }
+}
+function table(cols, rows, empty = 'Sin registros') {
+  if (!rows.length) return `<div class="empty">${empty}</div>`;
+  const th = cols.map((c) => `<th class="${c.n ? 'n' : ''}">${c.h}</th>`).join('');
+  const body = rows.map((r) => '<tr>' + cols.map((c) => {
+    const v = c.r ? c.r(r) : fmt(r[c.k]);
+    return `<td class="${c.n ? 'n' : ''}">${v}</td>`;
+  }).join('') + '</tr>').join('');
+  return `<div class="tw"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+const opts = (arr, v, l, sel) => arr.map((x) => `<option value="${esc(x[v])}"${String(x[v]) === String(sel) ? ' selected' : ''}>${esc(typeof l === 'function' ? l(x) : x[l])}</option>`).join('');
+
+// ---------- navegación ----------
+const NAV = [
+  { id: 'dashboard', t: 'Panel', roles: [2, 3, 4, 5] },
+  { id: 'ventas', t: 'Ventas', roles: [1, 2, 3, 4, 5] },
+  { id: 'turnos', t: 'Turnos y cortes', roles: [1, 2, 3, 5] },
+  { id: 'inventario', t: 'Inventario', roles: [2, 3, 4, 5] },
+  { id: 'facturas', t: 'Facturación', roles: [3, 4, 5] },
+  { id: 'reportes', t: 'Reportes', roles: [2, 3, 4, 5] },
+  { id: 'admin', t: 'Administración', roles: [5] },
+  { id: 'bitacora', t: 'Bitácora', roles: [3, 5] },
+];
+const can = (...roles) => me && (me.rol === 5 || roles.includes(me.rol));
+let current = null;
+
+function buildNav() {
+  const items = NAV.filter((n) => n.roles.includes(me.rol));
+  $('#nav').innerHTML = items.map((n) => `<a data-p="${n.id}">${n.t}</a>`).join('');
+  $('#nav').onclick = (e) => { const a = e.target.closest('a'); if (a) go(a.dataset.p); $('#side').classList.remove('open'); };
+  return items[0].id;
+}
+async function go(p) {
+  current = p;
+  document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('on', a.dataset.p === p));
+  $('#view').innerHTML = '<div class="empty">Cargando…</div>';
+  try { await pages[p](); } catch (e) { $('#view').innerHTML = `<div class="card"><b>No se pudo cargar.</b><br><span class="muted">${esc(e.message)}</span></div>`; }
+}
+function start() {
+  $('#login').classList.add('hide'); $('#app').classList.remove('hide');
+  $('#meName').textContent = me.nombre; $('#meRol').textContent = me.rol_nombre;
+  go(buildNav());
+}
+function logout() {
+  token = null; me = null; CAT = null;
+  sessionStorage.clear();
+  $('#app').classList.add('hide'); $('#login').classList.remove('hide');
+}
+
+// ---------- páginas ----------
+const pages = {};
+
+pages.dashboard = async () => {
+  const [kpi, vd, inv] = await Promise.all([
+    api('/reportes/kpi'), api('/reportes/ventas-dia'),
+    can(2, 3, 4) ? api('/inventario') : Promise.resolve([]),
+  ]);
+  const litros = kpi.reduce((a, r) => a + Number(r.litros_vendidos || 0), 0);
+  const monto = vd.reduce((a, r) => a + Number(r.monto || 0), 0);
+  const canc = kpi.reduce((a, r) => a + Number(r.ventas_canceladas || 0), 0);
+  const nVentas = vd.reduce((a, r) => a + Number(r.num_ventas || 0), 0);
+  const reorden = inv.filter((t) => t.alerta === 'REORDEN').length;
+  $('#view').innerHTML = `
+    <h2>Panel · últimos 30 días</h2>
+    <div class="grid" style="margin-bottom:16px">
+      <div class="kpi"><small>Ventas</small><b>${money(monto)}</b></div>
+      <div class="kpi"><small>Litros vendidos</small><b>${num(litros, 1)}</b></div>
+      <div class="kpi"><small>Ticket promedio</small><b>${money(nVentas ? monto / nVentas : 0)}</b></div>
+      <div class="kpi"><small>Ventas canceladas</small><b>${canc}</b></div>
+      <div class="kpi"><small>Tanques en reorden</small><b style="color:${reorden ? 'var(--bad)' : 'inherit'}">${reorden}</b></div>
+    </div>
+    <div class="card"><h3>Ventas por día y combustible</h3>
+      ${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Combustible', k: 'combustible' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }], vd)}
+    </div>`;
+};
+
+pages.ventas = async () => {
+  const [c, turnos] = await Promise.all([cat(true), can(1, 2) ? api('/turnos?estado=Abierto') : Promise.resolve([])]);
+  const puedeVender = can(1, 2) && turnos.length;
+  const bombas = c.bombas.filter((b) => b.estado === 'Activa');
+  $('#view').innerHTML = `
+    <h2>Ventas</h2>
+    ${can(1, 2) ? `<div class="card"><h3>Registrar venta</h3>
+      ${puedeVender ? `<form id="fv" class="row">
+        <div><label>Turno abierto</label><select id="vt">${opts(turnos, 'id_turno', (t) => `#${t.id_turno} · ${t.despachador} · ${String(t.fecha).slice(0, 10)}`)}</select></div>
+        <div><label>Bomba</label><select id="vb">${opts(bombas, 'id_bomba', (b) => `Isla ${b.id_isla} · Bomba ${b.numero} · ${b.combustible} (${money(b.precio_vigente)})`)}</select></div>
+        <div><label>Litros</label><input id="vl" type="number" step="0.001" min="0.001" required></div>
+        <div><label>Forma de pago</label><select id="vm">${opts(c.metodos, 'id_metodo', 'nombre')}</select></div>
+        <div><label>Total</label><input id="vmonto" disabled value="$0.00"></div>
+        <div class="btnbox"><button class="btn">Registrar</button></div></form>`
+      : '<div class="muted">No hay turnos abiertos. Un supervisor debe abrir un turno en “Turnos y cortes”.</div>'}</div>` : ''}
+    <div class="card"><div class="row" style="margin-bottom:10px">
+      <div><label>Fecha</label><input type="date" id="ff"></div>
+      <div><label>Estado</label><select id="fe"><option value="">Todos</option><option>Realizada</option><option>Cancelada</option></select></div>
+      <div class="btnbox"><button class="btn sec" id="fb">Filtrar</button></div></div>
+      <div id="vlist"></div></div>`;
+
+  const calc = () => {
+    const b = c.bombas.find((x) => x.id_bomba == $('#vb')?.value);
+    const l = Number($('#vl')?.value || 0);
+    if ($('#vmonto')) $('#vmonto').value = b ? money(Math.round(l * Number(b.precio_vigente) * 100) / 100) : '$0.00';
+  };
+  if (puedeVender) {
+    $('#vl').oninput = calc; $('#vb').onchange = calc;
+    $('#fv').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
+      const b = c.bombas.find((x) => x.id_bomba == $('#vb').value);
+      const litros = Number($('#vl').value);
+      const monto = Math.round(litros * Number(b.precio_vigente) * 100) / 100;
+      const r = await api('/ventas', { method: 'POST', body: { id_turno: +$('#vt').value, id_bomba: +$('#vb').value, litros, pagos: [{ id_metodo: +$('#vm').value, monto }] } });
+      toast(`Venta ${r.folio} registrada por ${money(r.monto)}`);
+      $('#vl').value = ''; calc(); loadVentas();
+    }); };
+  }
+  async function loadVentas() {
+    const qs = new URLSearchParams();
+    if ($('#ff').value) qs.set('fecha', $('#ff').value);
+    if ($('#fe').value) qs.set('estado', $('#fe').value);
+    const rows = await api('/ventas?' + qs);
+    $('#vlist').innerHTML = table([
+      { h: 'Folio', k: 'folio' }, { h: 'Fecha', k: 'fecha_hora' }, { h: 'Turno', k: 'id_turno' },
+      { h: 'Bomba', r: (r) => `I${r.id_isla}-B${r.bomba}` }, { h: 'Combustible', k: 'combustible' },
+      { h: 'Litros', n: 1, r: (r) => num(r.litros, 3) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) },
+      { h: 'Pago', k: 'pagos' }, { h: 'Despachador', k: 'despachador' }, { h: 'Estado', r: (r) => tag(r.estado) },
+      ...(can(2) ? [{ h: '', r: (r) => r.estado === 'Realizada' ? `<button class="btn danger sm" data-c="${r.id_venta}">Cancelar</button>` : '' }] : []),
+    ], rows);
+  }
+  $('#fb').onclick = (e) => act(e.target, loadVentas);
+  $('#vlist').onclick = (e) => {
+    const b = e.target.closest('[data-c]'); if (!b) return;
+    if (!confirm('¿Cancelar esta venta? Los litros regresan al tanque.')) return;
+    act(b, async () => { await api(`/ventas/${b.dataset.c}/cancelar`, { method: 'POST' }); toast('Venta cancelada'); await loadVentas(); });
+  };
+  await loadVentas();
+};
+
+pages.turnos = async () => {
+  const [c, rows] = await Promise.all([cat(true), api('/turnos')]);
+  const soyDesp = me.rol === 1;
+  $('#view').innerHTML = `
+    <h2>Turnos y cortes de caja</h2>
+    ${can(2) ? `<div class="card"><h3>Abrir turno</h3><form id="ft" class="row">
+      <div><label>Despachador</label><select id="td">${opts(c.despachadores, 'id_usuario', 'nombre')}</select></div>
+      <div><label>Fondo inicial</label><input id="tf" type="number" step="0.01" min="0" value="1500"></div>
+      <div class="btnbox"><button class="btn">Abrir turno</button></div></form></div>` : ''}
+    <div class="card">${table([
+      { h: '#', k: 'id_turno' }, { h: 'Fecha', k: 'fecha' }, { h: 'Despachador', k: 'despachador' }, { h: 'Supervisor', k: 'supervisor' },
+      { h: 'Inicio', k: 'hora_inicio' }, { h: 'Fin', k: 'hora_fin' }, { h: 'Fondo', n: 1, r: (r) => money(r.fondo_inicial) },
+      { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Monto', n: 1, r: (r) => money(r.monto_ventas) }, { h: 'Estado', r: (r) => tag(r.estado) },
+      ...(can(2) && !soyDesp ? [{ h: '', r: (r) => r.estado === 'Abierto' ? `<button class="btn sm" data-x="${r.id_turno}" data-e="${Number(r.fondo_inicial) + Number(r.monto_ventas)}">Cerrar</button>` : '' }] : []),
+    ], rows)}</div>
+    ${can(2, 3) ? '<div class="card"><h3>Cortes de caja</h3><div id="cortes"></div></div>' : ''}`;
+  if ($('#ft')) $('#ft').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
+    await api('/turnos', { method: 'POST', body: { id_usuario: +$('#td').value, fondo_inicial: +$('#tf').value } });
+    toast('Turno abierto'); go('turnos');
+  }); };
+  $('#view').onclick = (e) => {
+    const b = e.target.closest('[data-x]'); if (!b) return;
+    const v = prompt(`Total real contado en caja para el turno #${b.dataset.x}\n(Teórico: ${money(b.dataset.e)})`, Number(b.dataset.e).toFixed(2));
+    if (v === null) return;
+    act(b, async () => {
+      const r = await api(`/turnos/${b.dataset.x}/cerrar`, { method: 'POST', body: { total_real: Number(v) } });
+      toast(`Turno cerrado. Diferencia: ${money(r.diferencia)}`); go('turnos');
+    });
+  };
+  if ($('#cortes')) {
+    const cs = await api('/reportes/cortes');
+    $('#cortes').innerHTML = table([
+      { h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Supervisor', k: 'supervisor' },
+      { h: 'Teórico', n: 1, r: (r) => money(r.total_teorico) }, { h: 'Real', n: 1, r: (r) => money(r.total_real) },
+      { h: 'Diferencia', n: 1, r: (r) => `<span style="color:${Number(r.diferencia) < 0 ? 'var(--bad)' : 'inherit'}">${money(r.diferencia)}</span>` },
+    ], cs, 'Aún no hay cortes (últimos 30 días)');
+  }
+};
+
+pages.inventario = async () => {
+  const [inv, c] = await Promise.all([api('/inventario'), can(2) ? cat(true) : Promise.resolve(null)]);
+  const cargas = can(2, 3) ? await api('/cargas') : [];
+  $('#view').innerHTML = `
+    <h2>Inventario de tanques</h2>
+    <div class="grid" style="margin-bottom:16px">${inv.map((t) => `
+      <div class="kpi"><small>Tanque ${t.id_tanque} · ${esc(t.combustible)} ${tag(t.alerta)}</small>
+        <b>${num(t.nivel_actual, 0)} L</b>
+        <div class="bar ${t.alerta === 'REORDEN' ? 'low' : ''}"><i style="width:${Math.min(100, Number(t.porcentaje))}%"></i></div>
+        <small>${num(t.porcentaje, 1)}% de ${num(t.capacidad, 0)} L · mínimo ${num(t.nivel_minimo, 0)} L</small></div>`).join('')}</div>
+    ${can(2) ? `<div class="card"><h3>Registrar carga de combustible</h3><form id="fc" class="row">
+      <div><label>Tanque</label><select id="ct">${opts(c.tanques, 'id_tanque', (t) => `${t.id_tanque} · ${t.combustible}`)}</select></div>
+      <div><label>Proveedor</label><select id="cp">${opts(c.proveedores, 'id_proveedor', 'nombre')}</select></div>
+      <div><label>Litros</label><input id="cl" type="number" step="0.01" min="0.01" required></div>
+      <div><label>Documento / remisión</label><input id="cd" maxlength="40" required></div>
+      <div class="btnbox"><button class="btn">Registrar</button></div></form></div>` : ''}
+    ${can(2, 3) ? `<div class="card"><h3>Últimas cargas</h3>${table([
+      { h: 'Fecha', k: 'fecha' }, { h: 'Tanque', k: 'id_tanque' }, { h: 'Combustible', k: 'combustible' }, { h: 'Proveedor', k: 'proveedor' },
+      { h: 'Litros', n: 1, r: (r) => num(r.litros, 2) }, { h: 'Documento', k: 'documento' }], cargas)}</div>` : ''}`;
+  if ($('#fc')) $('#fc').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
+    await api('/cargas', { method: 'POST', body: { id_tanque: +$('#ct').value, id_proveedor: +$('#cp').value, litros: +$('#cl').value, documento: $('#cd').value } });
+    toast('Carga registrada'); go('inventario');
+  }); };
+};
+
+pages.facturas = async () => {
+  const rows = await api('/facturas');
+  let extra = '';
+  let pend = [], clientes = [];
+  if (can(4)) { [pend, clientes] = await Promise.all([api('/ventas?sinFactura=1&estado=Realizada'), cat(true).then((x) => x.clientes)]); }
+  $('#view').innerHTML = `
+    <h2>Facturación</h2>
+    ${can(4) ? `<div class="card"><h3>Emitir factura</h3>
+      ${pend.length ? `<form id="ff2" class="row">
+        <div><label>Venta sin factura</label><select id="fvta">${opts(pend, 'id_venta', (v) => `${v.folio} · ${money(v.monto)}`)}</select></div>
+        <div><label>Cliente</label><select id="fcli">${opts(clientes, 'id_cliente', (c) => `${c.razon_social} (${c.rfc})`)}</select></div>
+        <div class="btnbox"><button class="btn">Emitir</button></div></form>` : '<div class="muted">No hay ventas pendientes de facturar.</div>'}
+      <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">Registrar cliente nuevo</summary>
+        <form id="fcl" class="row" style="margin-top:8px">
+          <div><label>Razón social</label><input id="cr" maxlength="150" required></div>
+          <div><label>RFC</label><input id="cf" maxlength="13" required style="text-transform:uppercase"></div>
+          <div><label>Convenio (opcional)</label><input id="cc" maxlength="80"></div>
+          <div class="btnbox"><button class="btn sec">Guardar</button></div></form></details></div>` : ''}
+    <div class="card">${table([
+      { h: 'Folio fiscal', k: 'folio_fiscal' }, { h: 'Venta', k: 'folio_venta' }, { h: 'Cliente', k: 'razon_social' }, { h: 'RFC', k: 'rfc' },
+      { h: 'Monto', n: 1, r: (r) => money(r.monto) }, { h: 'Emisión', k: 'fecha_emision' }, { h: 'Estado', r: (r) => tag(r.estado) },
+      ...(can(4) ? [{ h: '', r: (r) => r.estado === 'Emitida' ? `<button class="btn danger sm" data-f="${r.id_factura}">Cancelar</button>` : '' }] : []),
+    ], rows)}</div>
+    ${can(4) ? '<p class="muted">Nota: el folio fiscal es un identificador de ejemplo; esta página no timbra CFDI ante el SAT.</p>' : ''}`;
+  if ($('#ff2')) $('#ff2').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
+    await api('/facturas', { method: 'POST', body: { id_venta: +$('#fvta').value, id_cliente: +$('#fcli').value } });
+    toast('Factura emitida'); go('facturas');
+  }); };
+  if ($('#fcl')) $('#fcl').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
+    await api('/clientes', { method: 'POST', body: { razon_social: $('#cr').value, rfc: $('#cf').value, convenio: $('#cc').value } });
+    toast('Cliente guardado'); await cat(true); go('facturas');
+  }); };
+  $('#view').onclick = (e) => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    if (!confirm('¿Cancelar esta factura? La venta no podrá volver a facturarse.')) return;
+    act(b, async () => { await api(`/facturas/${b.dataset.f}/cancelar`, { method: 'POST' }); toast('Factura cancelada'); go('facturas'); });
+  };
+};
+
+pages.reportes = async () => {
+  const hasta = today();
+  const desde = new Date(Date.now() - 6 * 3600e3 - 30 * 864e5).toISOString().slice(0, 10);
+  $('#view').innerHTML = `
+    <h2>Reportes</h2>
+    <div class="card"><div class="row">
+      <div><label>Desde</label><input type="date" id="rd" value="${desde}"></div>
+      <div><label>Hasta</label><input type="date" id="rh" value="${hasta}"></div>
+      <div class="btnbox"><button class="btn" id="rb">Consultar</button></div></div></div>
+    <div id="rep"></div>`;
+  async function load() {
+    const qs = `?desde=${$('#rd').value}&hasta=${$('#rh').value}`;
+    const [a, d, m, k, cs] = await Promise.all([
+      api('/reportes/ventas-dia' + qs), api('/reportes/despachador' + qs), api('/reportes/metodo-pago' + qs), api('/reportes/kpi' + qs),
+      can(2, 3) ? api('/reportes/cortes' + qs) : Promise.resolve(null),
+    ]);
+    $('#rep').innerHTML = `
+      <div class="card"><h3>Ventas por día y combustible</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Combustible', k: 'combustible' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }], a)}</div>
+      <div class="card"><h3>Ventas por despachador y turno</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }, { h: 'Ticket prom.', n: 1, r: (r) => money(r.ticket_promedio) }], d)}</div>
+      <div class="card"><h3>Ventas por método de pago</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Método', k: 'metodo_pago' }, { h: 'Total', n: 1, r: (r) => money(r.total) }, { h: '% del día', n: 1, r: (r) => num(r.porcentaje, 2) + '%' }], m)}</div>
+      <div class="card"><h3>Indicadores diarios</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Litros vendidos', n: 1, r: (r) => num(r.litros_vendidos, 1) }, { h: 'Ticket promedio', n: 1, r: (r) => money(r.ticket_promedio) }, { h: 'Canceladas', n: 1, r: (r) => r.ventas_canceladas }], k)}</div>
+      ${cs ? `<div class="card"><h3>Cortes de caja</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Supervisor', k: 'supervisor' }, { h: 'Teórico', n: 1, r: (r) => money(r.total_teorico) }, { h: 'Real', n: 1, r: (r) => money(r.total_real) }, { h: 'Diferencia', n: 1, r: (r) => money(r.diferencia) }], cs)}</div>` : ''}`;
+  }
+  $('#rb').onclick = (e) => act(e.target, load);
+  await load();
+};
+
+pages.admin = async () => {
+  const [users, roles, c] = await Promise.all([api('/usuarios'), api('/roles'), cat(true)]);
+  $('#view').innerHTML = `
+    <h2>Administración</h2>
+    <div class="card"><h3>Usuarios</h3>${table([
+      { h: 'Nombre', k: 'nombre' }, { h: 'Usuario', k: 'usuario' }, { h: 'Rol', k: 'rol' }, { h: 'Alta', k: 'fecha_alta' },
+      { h: 'Estado', r: (r) => tag(r.activo ? 'Activa' : 'Inactiva').replace('Activa', 'Activo').replace('Inactiva', 'Inactivo') },
+      { h: '', r: (r) => `<button class="btn sec sm" data-t="${r.id_usuario}" data-a="${r.activo ? 0 : 1}">${r.activo ? 'Desactivar' : 'Activar'}</button> <button class="btn sec sm" data-pw="${r.id_usuario}">Contraseña</button>` },
+    ], users)}
+      <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">Nuevo usuario</summary>
+      <form id="fu" class="row" style="margin-top:8px">
+        <div><label>Nombre</label><input id="un" maxlength="100" required></div>
+        <div><label>Usuario</label><input id="uu" maxlength="30" required></div>
+        <div><label>Contraseña (mín. 8)</label><input id="up" type="password" minlength="8" required></div>
+        <div><label>Rol</label><select id="ur">${opts(roles, 'id_rol', 'nombre')}</select></div>
+        <div class="btnbox"><button class="btn">Crear</button></div></form></details></div>
+    <div class="card"><h3>Precios vigentes</h3>${c.combustibles.map((x) => `
+      <form class="row" data-precio="${x.id_combustible}" style="margin-bottom:8px"><div><label>${esc(x.nombre)}</label><input type="number" step="0.01" min="0.01" value="${x.precio_vigente}" required></div>
+      <div class="btnbox"><button class="btn sec">Actualizar</button></div></form>`).join('')}</div>`;
+  $('#fu').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
+    await api('/usuarios', { method: 'POST', body: { nombre: $('#un').value, usuario: $('#uu').value, password: $('#up').value, id_rol: +$('#ur').value } });
+    toast('Usuario creado'); go('admin');
+  }); };
+  $('#view').onclick = (e) => {
+    const t = e.target.closest('[data-t]'), p = e.target.closest('[data-pw]');
+    if (t) act(t, async () => { await api('/usuarios/' + t.dataset.t, { method: 'PATCH', body: { activo: t.dataset.a === '1' } }); go('admin'); });
+    if (p) { const v = prompt('Nueva contraseña (mínimo 8 caracteres):'); if (v) act(p, async () => { await api('/usuarios/' + p.dataset.pw, { method: 'PATCH', body: { password: v } }); toast('Contraseña actualizada'); }); }
+  };
+  document.querySelectorAll('[data-precio]').forEach((f) => f.onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
+    await api('/combustibles/' + f.dataset.precio, { method: 'PUT', body: { precio: +f.querySelector('input').value } });
+    toast('Precio actualizado'); await cat(true);
+  }); });
+};
+
+pages.bitacora = async () => {
+  const rows = await api('/bitacora');
+  $('#view').innerHTML = `<h2>Bitácora de auditoría</h2><div class="card">${table([
+    { h: 'Fecha', k: 'fecha_hora' }, { h: 'Usuario', k: 'usuario' }, { h: 'Acción', k: 'accion' }, { h: 'Tabla', k: 'tabla_afectada' },
+    { h: 'Registro', k: 'id_registro' }, { h: 'Antes', k: 'valor_anterior' }, { h: 'Después', k: 'valor_nuevo' }], rows, 'La bitácora está vacía')}</div>`;
+};
+
+// ---------- arranque ----------
+$('#loginForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('#err').textContent = '';
+  try {
+    const r = await api('/login', { method: 'POST', body: { usuario: $('#u').value, password: $('#p').value } });
+    token = r.token; me = r.user;
+    sessionStorage.setItem('gc_token', token); sessionStorage.setItem('gc_user', JSON.stringify(me));
+    $('#p').value = '';
+    start();
+  } catch (err) { $('#err').textContent = err.message; }
+};
+$('#logout').onclick = (e) => { e.preventDefault(); logout(); };
+$('#menuBtn').onclick = () => $('#side').classList.toggle('open');
+if (token && me) start();
+</script>
+</body>
+</html>
