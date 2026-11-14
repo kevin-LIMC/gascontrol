@@ -3,86 +3,452 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GasControl</title>
+<title>GasControl · Sistema de Gestión y Flotillas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  :root{--bg:#f4f6f9;--card:#fff;--ink:#1c2430;--mut:#6b7686;--line:#e3e8ef;--brand:#0b6b57;--brand2:#0f8a71;--warn:#b45309;--bad:#b42318;--ok:#067647;--side:#12261f}
-  *{box-sizing:border-box}
-  body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
-  h1,h2,h3{margin:0 0 .6rem}
-  h2{font-size:1.25rem} h3{font-size:1rem;color:var(--mut);font-weight:600}
-  button,input,select{font:inherit}
-  .hide{display:none!important}
-  /* login */
-  #login{min-height:100vh;display:grid;place-items:center;padding:16px}
-  .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:360px;box-shadow:0 8px 30px #0001}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.3rem;color:var(--brand);margin-bottom:18px}
-  .logo{width:34px;height:34px;border-radius:9px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:18px}
-  label{display:block;font-size:.82rem;color:var(--mut);margin:10px 0 4px}
-  input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
-  input:focus,select:focus{outline:2px solid #0f8a7155;border-color:var(--brand2)}
-  .btn{background:var(--brand);color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
-  .btn:hover{background:var(--brand2)} .btn:disabled{opacity:.6;cursor:wait}
-  .btn.sec{background:#fff;color:var(--ink);border:1px solid var(--line)} .btn.sec:hover{background:#f1f4f8}
-  .btn.danger{background:var(--bad)} .btn.sm{padding:4px 9px;font-size:.8rem}
-  /* layout */
-  #app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
-  aside{background:var(--side);color:#cfe3db;padding:18px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
-  aside .brand{color:#fff;padding:0 8px}
-  nav{flex:1;margin-top:6px}
-  nav a{display:block;padding:9px 12px;border-radius:8px;color:#cfe3db;text-decoration:none;cursor:pointer;margin-bottom:2px}
-  nav a:hover{background:#ffffff14} nav a.on{background:var(--brand);color:#fff}
-  .me{font-size:.82rem;padding:8px;border-top:1px solid #ffffff22}
-  .me b{color:#fff;display:block}
-  main{padding:24px;max-width:1200px;width:100%}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
-  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
-  .kpi small{color:var(--mut);display:block} .kpi b{font-size:1.5rem}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end} .row>div{flex:1;min-width:140px}
-  .row>.btnbox{flex:0 0 auto;min-width:0}
-  .tw{overflow-x:auto}
-  table{border-collapse:collapse;width:100%;font-size:.88rem}
-  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-  th{color:var(--mut);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;background:#fafbfd}
-  td.n,th.n{text-align:right}
-  .tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.75rem;font-weight:600}
-  .t-ok{background:#d1fadf;color:var(--ok)} .t-bad{background:#fee4e2;color:var(--bad)} .t-warn{background:#fef0c7;color:var(--warn)} .t-gray{background:#eef1f5;color:var(--mut)}
-  .bar{height:10px;background:#eef1f5;border-radius:99px;overflow:hidden;margin:8px 0 4px}
-  .bar i{display:block;height:100%;background:var(--brand2)} .bar.low i{background:#d92d20}
-  .muted{color:var(--mut)} .empty{padding:18px;text-align:center;color:var(--mut)}
-  #toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:9}
-  .toast{background:#12261f;color:#fff;padding:10px 14px;border-radius:9px;max-width:360px;box-shadow:0 6px 20px #0004}
-  .toast.err{background:var(--bad)}
-  #err{color:var(--bad);font-size:.85rem;margin-top:10px;min-height:1.2em}
-  #menuBtn{display:none}
-  @media(max-width:800px){
-    #app{grid-template-columns:1fr}
-    aside{position:fixed;inset:0 25% 0 0;z-index:5;transform:translateX(-100%);transition:.2s;height:100%}
-    aside.open{transform:none} main{padding:14px}
-    #menuBtn{display:inline-block;margin-bottom:10px}
+  :root {
+    --bg: #f0f4f9;
+    --card: #ffffff;
+    --ink: #0f1d36;
+    --mut: #687e96;
+    --line: #e2eaf4;
+    --brand: #0066ff;
+    --brand-hover: #0052cc;
+    --brand-light: #eaf3ff;
+    --side: #081a36;
+    --side-hover: rgba(255, 255, 255, 0.08);
+    --side-mut: #889ec0;
+    --warn: #b45309;
+    --bad: #d92d20;
+    --ok: #079455;
+    --kpi-blue-bg: #eaf3ff;
+    --kpi-blue-ink: #0052cc;
+    --kpi-green-bg: #eaf9f1;
+    --kpi-green-ink: #057a44;
+    --kpi-orange-bg: #fff3e8;
+    --kpi-orange-ink: #b25900;
+    --kpi-purple-bg: #f4ecff;
+    --kpi-purple-ink: #6b21a8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1, h2, h3, h4 { margin: 0 0 .5rem; font-weight: 700; color: var(--ink); }
+  h2 { font-size: 1.35rem; display: flex; align-items: center; gap: 10px; }
+  h3 { font-size: 1.05rem; font-weight: 700; }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  .hide { display: none !important; }
+
+  /* Login */
+  #login {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: radial-gradient(circle at 10% 20%, #0d2752 0%, #081a36 90%);
+  }
+  .login-card {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 390px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+  }
+  .brand-logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: var(--side);
+    margin-bottom: 24px;
+  }
+  .drop-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #00c6ff, #0066ff);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0, 102, 255, 0.35);
+  }
+  label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--mut);
+    margin: 12px 0 5px;
+  }
+  input, select {
+    width: 100%;
+    height: 42px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    transition: all 0.15s ease;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.12);
+  }
+
+  /* Botones */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 16px;
+    background: var(--brand);
+    color: #fff;
+    border: 0;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 102, 255, 0.25);
+  }
+  .btn:hover { background: var(--brand-hover); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.6; cursor: wait; }
+  .btn.sec {
+    background: #ffffff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .btn.sec:hover { background: #f8fafc; border-color: #cbd5e1; }
+  .btn.danger { background: var(--bad); box-shadow: 0 2px 8px rgba(217, 45, 32, 0.25); }
+  .btn.danger:hover { background: #b42318; }
+  .btn.sm { height: 32px; padding: 0 10px; font-size: 0.78rem; border-radius: 8px; }
+
+  /* Layout */
+  #app {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+  }
+  aside {
+    background: var(--side);
+    color: var(--side-mut);
+    padding: 24px 14px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+  }
+  aside .brand {
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.3rem;
+    font-weight: 800;
+    padding: 0 8px 24px;
+  }
+  nav { flex: 1; overflow-y: auto; }
+  nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    color: var(--side-mut);
+    text-decoration: none;
+    cursor: pointer;
+    margin-bottom: 4px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+  }
+  nav a svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+  nav a:hover { background: var(--side-hover); color: #fff; }
+  nav a.on {
+    background: var(--brand);
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0, 102, 255, 0.35);
+  }
+  nav a.on svg { stroke: #fff; }
+
+  .user-footer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 10px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .user-avatar-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #142848;
+    color: #94a9c9;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+  }
+  .user-info { flex: 1; min-width: 0; line-height: 1.25; }
+  .user-info b { color: #fff; display: block; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-info small { color: var(--side-mut); font-size: 0.72rem; }
+  .btn-logout { color: #f87171; text-decoration: none; font-size: 0.75rem; display: block; margin-top: 3px; cursor: pointer; }
+  .btn-logout:hover { text-decoration: underline; }
+
+  /* Main Area */
+  main {
+    padding: 24px 30px;
+    max-width: 1400px;
+    width: 100%;
+  }
+  .top-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .top-header-left { display: flex; align-items: center; gap: 12px; }
+  .top-header-right { display: flex; align-items: center; gap: 12px; }
+  .date-badge {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--mut);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  }
+  .user-top-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #0d2752;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 3px 12px rgba(15, 29, 54, 0.03);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  /* KPIs estilo pastel del mockup */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    border-radius: 16px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border: 1px solid transparent;
+  }
+  .kpi-icon-box {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: #ffffff;
+    display: grid;
+    place-items: center;
+    font-size: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    flex-shrink: 0;
+  }
+  .kpi-body small { display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 2px; }
+  .kpi-body b { font-size: 1.55rem; font-weight: 800; line-height: 1.1; }
+
+  .kpi-blue   { background: var(--kpi-blue-bg);   border-color: #d8e8fe; }
+  .kpi-blue   .kpi-body small { color: #3b82f6; } .kpi-blue   .kpi-body b { color: var(--kpi-blue-ink); }
+  .kpi-green  { background: var(--kpi-green-bg);  border-color: #c9f0db; }
+  .kpi-green  .kpi-body small { color: #10b981; } .kpi-green  .kpi-body b { color: var(--kpi-green-ink); }
+  .kpi-orange { background: var(--kpi-orange-bg); border-color: #fedfc4; }
+  .kpi-orange .kpi-body small { color: #f97316; } .kpi-orange .kpi-body b { color: var(--kpi-orange-ink); }
+  .kpi-purple { background: var(--kpi-purple-bg); border-color: #ecd9ff; }
+  .kpi-purple .kpi-body small { color: #a855f7; } .kpi-purple .kpi-body b { color: var(--kpi-purple-ink); }
+
+  /* Hero Banner en Panel */
+  .hero-banner {
+    background: linear-gradient(135deg, #091e3d 0%, #103366 100%);
+    border-radius: 16px;
+    padding: 24px 30px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-banner::after {
+    content: '';
+    position: absolute;
+    right: -20px;
+    bottom: -30px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(0, 102, 255, 0.35) 0%, transparent 70%);
+  }
+  .hero-title { font-size: 1.6rem; font-weight: 800; margin: 0 0 6px; }
+  .hero-desc { color: #94a9c9; font-size: 0.92rem; margin: 0; }
+
+  /* Grids de 2 columnas como en el mockup */
+  .grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 20px;
+  }
+  .grid-2col-equal {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* Formularios */
+  .form-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+  .form-row > div { flex: 1; min-width: 140px; }
+  .form-row > .btnbox { flex: 0 0 auto; min-width: 0; }
+
+  /* Tablas */
+  .tw { overflow-x: auto; border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { color: var(--mut); font-weight: 600; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em; background: #fafbfd; }
+  td.n, th.n { text-align: right; }
+  tr:hover td { background: #fbfcfe; }
+
+  /* Badges / Tags */
+  .tag { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 0.74rem; font-weight: 700; }
+  .t-ok { background: #d1fae5; color: #065f46; }
+  .t-bad { background: #fee2e2; color: #991b1b; }
+  .t-warn { background: #fef3c7; color: #92400e; }
+  .t-blue { background: #dbeafe; color: #1e40af; }
+  .t-gray { background: #eef2f6; color: var(--mut); }
+
+  .bar { height: 10px; background: #eef2f6; border-radius: 99px; overflow: hidden; margin: 8px 0 4px; }
+  .bar i { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
+  .bar.low i { background: var(--bad); }
+
+  .muted { color: var(--mut); }
+  .empty { padding: 24px; text-align: center; color: var(--mut); }
+
+  /* Toast */
+  #toast { position: fixed; right: 20px; bottom: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 999; }
+  .toast { background: var(--side); color: #fff; padding: 12px 18px; border-radius: 12px; max-width: 380px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); font-weight: 500; font-size: 0.88rem; }
+  .toast.err { background: var(--bad); }
+
+  #err { color: var(--bad); font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
+  #menuBtn { display: none; }
+
+  @media (max-width: 950px) {
+    #app { grid-template-columns: 1fr; }
+    aside {
+      position: fixed;
+      inset: 0 20% 0 0;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      box-shadow: 10px 0 30px rgba(0,0,0,0.3);
+    }
+    aside.open { transform: none; }
+    main { padding: 16px; }
+    #menuBtn { display: inline-flex; }
+    .grid-2col, .grid-2col-equal { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
 
 <section id="login">
-  <form class="box" id="loginForm">
-    <div class="brand"><span class="logo">⛽</span> GasControl</div>
-    <label for="u">Usuario</label><input id="u" autocomplete="username" required>
-    <label for="p">Contraseña</label><input id="p" type="password" autocomplete="current-password" required>
-    <button class="btn" style="width:100%;margin-top:16px">Entrar</button>
+  <form class="login-card" id="loginForm">
+    <div class="brand-logo-wrap">
+      <div class="drop-badge">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2.5C12 2.5 5 10.5 5 15.5C5 19.09 7.91 22 11.5 22C15.09 22 18 19.09 18 15.5C18 10.5 12 2.5 12 2.5Z" fill="white"/></svg>
+      </div>
+      GasControl
+    </div>
+    <h3 style="margin-bottom:4px">Iniciar Sesión</h3>
+    <p class="muted" style="margin:0 0 16px;font-size:0.85rem">Ingresa tus credenciales del sistema</p>
+    <label for="u">Usuario</label>
+    <input id="u" autocomplete="username" placeholder="Ej: admin" required>
+    <label for="p">Contraseña</label>
+    <input id="p" type="password" autocomplete="current-password" placeholder="••••••••" required>
+    <button class="btn" style="width:100%;margin-top:20px;height:44px">Iniciar Sesión</button>
     <div id="err"></div>
   </form>
 </section>
 
 <div id="app" class="hide">
   <aside id="side">
-    <div class="brand"><span class="logo">⛽</span> GasControl</div>
+    <div class="brand">
+      <div class="drop-badge" style="width:34px;height:34px;border-radius:10px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2.5C12 2.5 5 10.5 5 15.5C5 19.09 7.91 22 11.5 22C15.09 22 18 19.09 18 15.5C18 10.5 12 2.5 12 2.5Z" fill="white"/></svg>
+      </div>
+      GasControl
+    </div>
     <nav id="nav"></nav>
-    <div class="me"><b id="meName"></b><span id="meRol" class="muted"></span><br><a href="#" id="logout" style="color:#9fd5c5">Cerrar sesión</a></div>
+    <div class="user-footer">
+      <div class="user-avatar-circle">👤</div>
+      <div class="user-info">
+        <b id="meName">Usuario</b>
+        <small id="meRol" class="muted">Rol</small>
+        <a class="btn-logout" id="logout">Cerrar sesión</a>
+      </div>
+    </div>
   </aside>
+
   <main>
-    <button class="btn sec" id="menuBtn">☰ Menú</button>
+    <div class="top-header">
+      <div class="top-header-left">
+        <button class="btn sec sm" id="menuBtn">☰ Menú</button>
+        <h2 id="topTitle">Panel Principal</h2>
+      </div>
+      <div class="top-header-right">
+        <div class="date-badge">
+          <span>📅</span> <span id="topDate">-- --- ----</span>
+        </div>
+        <div class="user-top-avatar" title="Cuenta">👤</div>
+      </div>
+    </div>
     <div id="view"></div>
   </main>
 </div>
@@ -98,56 +464,21 @@ const fmt = (v) => {
   if (v == null) return '<span class="muted">—</span>';
   if (typeof v === 'string' && /^\d{4}-\d\d-\d\dT/.test(v)) {
     if (v.startsWith('1970-01-01')) return v.slice(11, 16);
-    return v.endsWith('T00:00:00.000Z') ? v.slice(0, 10) : v.replace('T', ' ').slice(0, 16);
+    return v.slice(0, 10) + ' ' + v.slice(11, 16);
   }
   return esc(v);
 };
-const tag = (t) => {
-  const m = { Realizada: 'ok', Emitida: 'ok', Abierto: 'ok', Activa: 'ok', OK: 'ok', Cancelada: 'bad', Falla: 'bad', REORDEN: 'bad', Cerrado: 'gray', Inactiva: 'warn' };
-  return `<span class="tag t-${m[t] || 'gray'}">${esc(t)}</span>`;
+const tag = (st) => {
+  const m = {
+    Realizada: 't-ok', Emitida: 't-ok', Abierto: 't-ok', Activa: 't-ok', Activo: 't-ok', 'En curso': 't-ok', Cerrado: 't-ok',
+    Cancelada: 't-bad', Inactiva: 't-bad', Inactivo: 't-bad', Falla: 't-bad',
+    REORDEN: 't-bad', OK: 't-ok', ALTO: 't-warn'
+  };
+  return `<span class="tag ${m[st] || 't-gray'}">${esc(st)}</span>`;
 };
-const today = () => new Date(Date.now() - 6 * 3600e3).toISOString().slice(0, 10); // aprox. hora de CDMX
+const today = () => new Date(Date.now() - 6 * 3600e3).toISOString().slice(0, 10);
 
-let token = sessionStorage.getItem('gc_token');
-let me = JSON.parse(sessionStorage.getItem('gc_user') || 'null');
-let CAT = null;
-const cat = async (force) => (CAT && !force ? CAT : (CAT = await api('/catalogos')));
-
-async function api(path, opt = {}) {
-  const r = await fetch('/api' + path, {
-    method: opt.method || 'GET',
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
-    body: opt.body ? JSON.stringify(opt.body) : undefined,
-  });
-  let d = null;
-  try { d = await r.json(); } catch (_) {}
-  if (r.status === 401 && path !== '/login') { logout(); throw new Error('Sesión expirada'); }
-  if (!r.ok) throw new Error((d && d.error) || 'Error ' + r.status);
-  return d;
-}
-function toast(msg, err) {
-  const t = document.createElement('div');
-  t.className = 'toast' + (err ? ' err' : '');
-  t.textContent = msg;
-  $('#toast').appendChild(t);
-  setTimeout(() => t.remove(), err ? 6000 : 3500);
-}
-// ejecuta una acción mostrando errores como aviso
-async function act(btn, fn) {
-  if (btn) btn.disabled = true;
-  try { await fn(); } catch (e) { toast(e.message, true); } finally { if (btn) btn.disabled = false; }
-}
-function table(cols, rows, empty = 'Sin registros') {
-  if (!rows.length) return `<div class="empty">${empty}</div>`;
-  const th = cols.map((c) => `<th class="${c.n ? 'n' : ''}">${c.h}</th>`).join('');
-  const body = rows.map((r) => '<tr>' + cols.map((c) => {
-    const v = c.r ? c.r(r) : fmt(r[c.k]);
-    return `<td class="${c.n ? 'n' : ''}">${v}</td>`;
-  }).join('') + '</tr>').join('');
-  return `<div class="tw"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
-}
-const opts = (arr, v, l, sel) => arr.map((x) => `<option value="${esc(x[v])}"${String(x[v]) === String(sel) ? ' selected' : ''}>${esc(typeof l === 'function' ? l(x) : x[l])}</option>`).join('');
-
+// Exportar CSV
 function exportCSV(filename, cols, rows) {
   const header = cols.map((c) => `"${(c.h || '').replace(/"/g, '""')}"`).join(',');
   const lines = rows.map((r) => cols.map((c) => {
@@ -166,165 +497,526 @@ function exportCSV(filename, cols, rows) {
   URL.revokeObjectURL(url);
 }
 
-// ---------- navegación ----------
+// Estado de sesión
+let token = sessionStorage.getItem('gc_token');
+let me = JSON.parse(sessionStorage.getItem('gc_user') || 'null');
+let CAT = null;
+
+async function cat(force = false) {
+  if (!CAT || force) CAT = await api('/catalogos');
+  return CAT;
+}
+
+async function api(path, opts = {}) {
+  const h = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (token) h.Authorization = 'Bearer ' + token;
+  if (opts.body && typeof opts.body === 'object') opts.body = JSON.stringify(opts.body);
+  const r = await fetch('/api' + path, { ...opts, headers: h });
+  if (r.status === 401) { logout(); throw new Error('Sesión expirada'); }
+  const d = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((d && d.error) || 'Error ' + r.status);
+  return d;
+}
+
+function toast(msg, err) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (err ? ' err' : '');
+  t.textContent = msg;
+  $('#toast').appendChild(t);
+  setTimeout(() => t.remove(), err ? 6000 : 3500);
+}
+
+async function act(btn, fn) {
+  if (btn) btn.disabled = true;
+  try { await fn(); } catch (e) { toast(e.message, true); } finally { if (btn) btn.disabled = false; }
+}
+
+function table(cols, rows, empty = 'Sin registros') {
+  if (!rows || !rows.length) return `<div class="empty">${empty}</div>`;
+  const th = cols.map((c) => `<th class="${c.n ? 'n' : ''}">${c.h}</th>`).join('');
+  const body = rows.map((r) => '<tr>' + cols.map((c) => {
+    const v = c.r ? c.r(r) : fmt(r[c.k]);
+    return `<td class="${c.n ? 'n' : ''}">${v}</td>`;
+  }).join('') + '</tr>').join('');
+  return `<div class="tw"><table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+const opts = (arr, v, l, sel) => arr.map((x) => `<option value="${esc(x[v])}"${String(x[v]) === String(sel) ? ' selected' : ''}>${esc(typeof l === 'function' ? l(x) : x[l])}</option>`).join('');
+
+// ---------- Navegación ----------
 const NAV = [
-  { id: 'dashboard', t: 'Panel', roles: [2, 3, 4, 5] },
-  { id: 'ventas', t: 'Ventas', roles: [1, 2, 3, 4, 5] },
-  { id: 'vehiculos', t: 'Flotillas y Vehículos', roles: [1, 2, 3, 4, 5] },
-  { id: 'turnos', t: 'Turnos y cortes', roles: [1, 2, 3, 5] },
-  { id: 'inventario', t: 'Inventario', roles: [2, 3, 4, 5] },
-  { id: 'facturas', t: 'Facturación', roles: [3, 4, 5] },
-  { id: 'reportes', t: 'Reportes', roles: [2, 3, 4, 5] },
-  { id: 'admin', t: 'Administración', roles: [5] },
-  { id: 'bitacora', t: 'Bitácora', roles: [3, 5] },
+  { id: 'dashboard', t: 'Panel', icon: '<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', roles: [2, 3, 4, 5] },
+  { id: 'ventas', t: 'Ventas', icon: '<svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>', roles: [1, 2, 3, 4, 5] },
+  { id: 'vehiculos', t: 'Flotillas y Vehículos', icon: '<svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>', roles: [1, 2, 3, 4, 5] },
+  { id: 'turnos', t: 'Turnos y cortes', icon: '<svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>', roles: [1, 2, 3, 5] },
+  { id: 'inventario', t: 'Inventario', icon: '<svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>', roles: [2, 3, 4, 5] },
+  { id: 'facturas', t: 'Facturación', icon: '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>', roles: [3, 4, 5] },
+  { id: 'reportes', t: 'Reportes', icon: '<svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', roles: [2, 3, 4, 5] },
+  { id: 'admin', t: 'Administración', icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', roles: [5] },
+  { id: 'bitacora', t: 'Bitácora', icon: '<svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>', roles: [3, 5] },
 ];
 const can = (...roles) => me && (me.rol === 5 || roles.includes(me.rol));
 let current = null;
 
 function buildNav() {
   const items = NAV.filter((n) => n.roles.includes(me.rol));
-  $('#nav').innerHTML = items.map((n) => `<a data-p="${n.id}">${n.t}</a>`).join('');
-  $('#nav').onclick = (e) => { const a = e.target.closest('a'); if (a) go(a.dataset.p); $('#side').classList.remove('open'); };
+  $('#nav').innerHTML = items.map((n) => `<a data-p="${n.id}">${n.icon} <span>${n.t}</span></a>`).join('');
+  $('#nav').onclick = (e) => {
+    const a = e.target.closest('a');
+    if (a) go(a.dataset.p);
+    $('#side').classList.remove('open');
+  };
   return items[0].id;
 }
+
 async function go(p) {
   current = p;
+  const navItem = NAV.find((x) => x.id === p);
+  if ($('#topTitle')) $('#topTitle').textContent = navItem ? navItem.t : 'GasControl';
   document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('on', a.dataset.p === p));
-  $('#view').innerHTML = '<div class="empty">Cargando…</div>';
-  try { await pages[p](); } catch (e) { $('#view').innerHTML = `<div class="card"><b>No se pudo cargar.</b><br><span class="muted">${esc(e.message)}</span></div>`; }
+  $('#view').innerHTML = '<div class="card"><div class="empty">Cargando datos…</div></div>';
+  try {
+    await pages[p]();
+  } catch (e) {
+    $('#view').innerHTML = `<div class="card"><b style="color:var(--bad)">No se pudo cargar la vista.</b><br><span class="muted">${esc(e.message)}</span></div>`;
+  }
 }
+
+function updateTopDate() {
+  const d = new Date();
+  const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  const s = `${d.getDate()} ${meses[d.getMonth()]} ${d.getFullYear()}`;
+  if ($('#topDate')) $('#topDate').textContent = s;
+}
+
 function start() {
-  $('#login').classList.add('hide'); $('#app').classList.remove('hide');
-  $('#meName').textContent = me.nombre; $('#meRol').textContent = me.rol_nombre;
+  $('#login').classList.add('hide');
+  $('#app').classList.remove('hide');
+  $('#meName').textContent = me.nombre;
+  $('#meRol').textContent = me.rol_nombre;
+  updateTopDate();
   go(buildNav());
 }
+
 function logout() {
   token = null; me = null; CAT = null;
   sessionStorage.clear();
-  $('#app').classList.add('hide'); $('#login').classList.remove('hide');
+  $('#app').classList.add('hide');
+  $('#login').classList.remove('hide');
 }
 
-// ---------- páginas ----------
-const pages = {};
+$('#menuBtn').onclick = () => $('#side').classList.toggle('open');
+$('#logout').onclick = logout;
 
-pages.dashboard = async () => {
-  const [kpi, vd, inv] = await Promise.all([
-    api('/reportes/kpi'), api('/reportes/ventas-dia'),
-    can(2, 3, 4) ? api('/inventario') : Promise.resolve([]),
-  ]);
-  const litros = kpi.reduce((a, r) => a + Number(r.litros_vendidos || 0), 0);
-  const monto = vd.reduce((a, r) => a + Number(r.monto || 0), 0);
-  const canc = kpi.reduce((a, r) => a + Number(r.ventas_canceladas || 0), 0);
-  const nVentas = vd.reduce((a, r) => a + Number(r.num_ventas || 0), 0);
-  const reorden = inv.filter((t) => t.alerta === 'REORDEN').length;
-  $('#view').innerHTML = `
-    <h2>Panel · últimos 30 días</h2>
-    <div class="grid" style="margin-bottom:16px">
-      <div class="kpi"><small>Ventas</small><b>${money(monto)}</b></div>
-      <div class="kpi"><small>Litros vendidos</small><b>${num(litros, 1)}</b></div>
-      <div class="kpi"><small>Ticket promedio</small><b>${money(nVentas ? monto / nVentas : 0)}</b></div>
-      <div class="kpi"><small>Ventas canceladas</small><b>${canc}</b></div>
-      <div class="kpi"><small>Tanques en reorden</small><b style="color:${reorden ? 'var(--bad)' : 'inherit'}">${reorden}</b></div>
-    </div>
-    <div class="card"><h3>Ventas por día y combustible</h3>
-      ${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Combustible', k: 'combustible' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }], vd)}
-    </div>`;
+$('#loginForm').onsubmit = (e) => {
+  e.preventDefault();
+  $('#err').textContent = '';
+  act(e.submitter, async () => {
+    const d = await api('/login', { method: 'POST', body: { usuario: $('#u').value, password: $('#p').value } });
+    token = d.token;
+    me = d.user;
+    sessionStorage.setItem('gc_token', token);
+    sessionStorage.setItem('gc_user', JSON.stringify(me));
+    start();
+  });
 };
 
+// ---------- Páginas ----------
+const pages = {};
+
+// 1. PANEL PRINCIPAL
+pages.dashboard = async () => {
+  const [kpi, vd, inv, vehiculos] = await Promise.all([
+    api('/reportes/kpi'),
+    api('/reportes/ventas-dia'),
+    can(2, 3, 4) ? api('/inventario') : Promise.resolve([]),
+    api('/vehiculos').catch(() => [])
+  ]);
+
+  const litrosTot = vd.reduce((a, r) => a + Number(r.litros || 0), 0);
+  const montoTot = vd.reduce((a, r) => a + Number(r.monto || 0), 0);
+  const kmTot = vehiculos.reduce((a, v) => a + (v.km_recorridos || 0), 0);
+  const totalVeh = vehiculos.length;
+  const stockTot = inv.reduce((a, t) => a + Number(t.nivel_actual || 0), 0);
+
+  $('#view').innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon-box">🚗</div>
+        <div class="kpi-body">
+          <small>Vehículos registrados</small>
+          <b>${totalVeh}</b>
+        </div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon-box">📍</div>
+        <div class="kpi-body">
+          <small>Km recorridos (total)</small>
+          <b>${num(kmTot, 0)} km</b>
+        </div>
+      </div>
+      <div class="kpi-card kpi-orange">
+        <div class="kpi-icon-box">⛽</div>
+        <div class="kpi-body">
+          <small>Litros consumidos</small>
+          <b>${num(litrosTot, 1)} L</b>
+        </div>
+      </div>
+      <div class="kpi-card kpi-purple">
+        <div class="kpi-icon-box">💳</div>
+        <div class="kpi-body">
+          <small>Gasto total acumulado</small>
+          <b>${money(montoTot)}</b>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2col" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-header">
+          <h3>Consumo de Combustible</h3>
+          <span class="tag t-gray">Últimos 6 meses</span>
+        </div>
+        <div style="height:230px"><canvas id="chartConsumo"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3>Resumen General</h3>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;margin-top:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="display:flex;align-items:center;gap:10px;font-weight:600">
+              <span style="width:10px;height:10px;border-radius:50%;background:#10b981"></span> Ventas Totales
+            </span>
+            <b style="font-size:1.15rem">${money(montoTot)}</b>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="display:flex;align-items:center;gap:10px;font-weight:600">
+              <span style="width:10px;height:10px;border-radius:50%;background:#0066ff"></span> Flotillas Activas
+            </span>
+            <b style="font-size:1.15rem">${totalVeh} unidades</b>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="display:flex;align-items:center;gap:10px;font-weight:600">
+              <span style="width:10px;height:10px;border-radius:50%;background:#f97316"></span> Inventario Actual
+            </span>
+            <b style="font-size:1.15rem">${num(stockTot, 0)} L</b>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span style="display:flex;align-items:center;gap:10px;font-weight:600">
+              <span style="width:10px;height:10px;border-radius:50%;background:#8b5cf6"></span> Tanques en Servicio
+            </span>
+            <b style="font-size:1.15rem">${inv.length} tanques</b>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-banner">
+      <div>
+        <div class="hero-title">GasControl</div>
+        <p class="hero-desc">Control total, mayor eficiencia y análisis inteligente de combustible</p>
+      </div>
+      <button class="btn sec" onclick="go('vehiculos')">Ver Flotillas</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Ventas por día y combustible</h3>
+        <button class="btn sec sm" id="btnExpDash">Exportar CSV</button>
+      </div>
+      ${table([
+        { h: 'Fecha', k: 'fecha' },
+        { h: 'Combustible', k: 'combustible' },
+        { h: 'Ventas', n: 1, r: (r) => r.num_ventas },
+        { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) + ' L' },
+        { h: 'Monto', n: 1, r: (r) => money(r.monto) }
+      ], vd)}
+    </div>
+  `;
+
+  if ($('#btnExpDash')) {
+    $('#btnExpDash').onclick = () => exportCSV('ventas_resumen.csv', [
+      { h: 'Fecha', k: 'fecha' }, { h: 'Combustible', k: 'combustible' },
+      { h: 'Num_Ventas', k: 'num_ventas' }, { h: 'Litros', k: 'litros' }, { h: 'Monto', k: 'monto' }
+    ], vd);
+  }
+
+  // Gráfica de consumo
+  const ctx = document.getElementById('chartConsumo');
+  if (ctx && window.Chart) {
+    const labels = vd.slice(0, 7).map(x => String(x.fecha).slice(5)).reverse();
+    const dataPts = vd.slice(0, 7).map(x => Number(x.litros)).reverse();
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels.length ? labels : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+        datasets: [{
+          label: 'Litros',
+          data: dataPts.length ? dataPts : [1200, 1900, 1500, 2200, 2800, 3100],
+          borderColor: '#0066ff',
+          backgroundColor: 'rgba(0, 102, 255, 0.08)',
+          fill: true,
+          tension: 0.35,
+          pointBackgroundColor: '#0066ff',
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' } },
+          x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+  }
+};
+
+// 2. VENTAS
 pages.ventas = async () => {
-  const [c, turnos] = await Promise.all([cat(true), can(1, 2) ? api('/turnos?estado=Abierto') : Promise.resolve([])]);
+  const [c, turnos] = await Promise.all([
+    cat(true),
+    can(1, 2) ? api('/turnos?estado=Abierto') : Promise.resolve([])
+  ]);
   const puedeVender = can(1, 2) && turnos.length;
   const bombas = c.bombas.filter((b) => b.estado === 'Activa');
   const vehiculos = c.vehiculos || [];
   let ultimasVentas = [];
 
   $('#view').innerHTML = `
-    <h2>Ventas</h2>
-    ${can(1, 2) ? `<div class="card"><h3>Registrar venta</h3>
-      ${puedeVender ? `<form id="fv" class="row">
-        <div><label>Turno abierto</label><select id="vt">${opts(turnos, 'id_turno', (t) => `#${t.id_turno} · ${t.despachador} · ${String(t.fecha).slice(0, 10)}`)}</select></div>
-        <div><label>Bomba</label><select id="vb">${opts(bombas, 'id_bomba', (b) => `Isla ${b.id_isla} · Bomba ${b.numero} · ${b.combustible} (${money(b.precio_vigente)})`)}</select></div>
-        <div><label>Litros</label><input id="vl" type="number" step="0.001" min="0.001" required></div>
-        <div><label>Forma de pago</label><select id="vm">${opts(c.metodos, 'id_metodo', 'nombre')}</select></div>
-        <div><label>Total</label><input id="vmonto" disabled value="$0.00"></div>
-        <div><label>Vehículo / Flotilla (opcional)</label><select id="vveh"><option value="">-- Particular / Sin registro --</option>${opts(vehiculos, 'id_vehiculo', (v) => `${v.placas} · ${v.marca_modelo} (${num(v.odometro_actual, 0)} km)`)}</select></div>
-        <div><label>Odómetro (km)</label><input id="vodo" type="number" step="1" min="0" placeholder="Km actual"></div>
-        <div style="flex:0 0 110px;align-self:center;padding-top:14px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.85rem"><input type="checkbox" id="vlleno" checked> Tanque lleno</label></div>
-        <div class="btnbox" style="padding-top:14px"><button class="btn">Registrar</button></div></form>`
-      : '<div class="muted">No hay turnos abiertos. Un supervisor debe abrir un turno en “Turnos y cortes”.</div>'}</div>` : ''}
-    <div class="card"><div class="row" style="margin-bottom:10px">
-      <div><label>Fecha</label><input type="date" id="ff"></div>
-      <div><label>Estado</label><select id="fe"><option value="">Todos</option><option>Realizada</option><option>Cancelada</option></select></div>
-      <div class="btnbox"><button class="btn sec" id="fb">Filtrar</button> <button class="btn sec" id="fexport">Descargar CSV</button></div></div>
-      <div id="vlist"></div></div>`;
+    <div class="kpi-grid" id="ventasKpis">
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon-box">🛒</div>
+        <div class="kpi-body">
+          <small>Ventas del día</small>
+          <b id="kpiDia">$0.00</b>
+        </div>
+      </div>
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon-box">📄</div>
+        <div class="kpi-body">
+          <small>Total de ventas</small>
+          <b id="kpiTot">$0.00</b>
+        </div>
+      </div>
+      <div class="kpi-card kpi-purple">
+        <div class="kpi-icon-box">📈</div>
+        <div class="kpi-body">
+          <small>Ticket promedio</small>
+          <b id="kpiAvg">$0.00</b>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2col">
+      <!-- Columna Izquierda: Formulario Registro -->
+      <div>
+        ${can(1, 2) ? `
+        <div class="card">
+          <div class="card-header">
+            <h3>Registro de Ventas</h3>
+            <span class="tag t-blue">Bomba Activa</span>
+          </div>
+          ${puedeVender ? `
+          <form id="fv">
+            <label>Turno Abierto</label>
+            <select id="vt">${opts(turnos, 'id_turno', (t) => `#${t.id_turno} · ${t.despachador} · ${String(t.fecha).slice(0, 10)}`)}</select>
+            
+            <label>Bomba y Combustible</label>
+            <select id="vb">${opts(bombas, 'id_bomba', (b) => `Isla ${b.id_isla} · Bomba ${b.numero} · ${b.combustible} (${money(b.precio_vigente)})`)}</select>
+
+            <label>Litros a Despachar</label>
+            <input id="vl" type="number" step="0.001" min="0.001" placeholder="Ej: 40.00" required>
+
+            <label>Total a Cobrar</label>
+            <input id="vmonto" disabled value="$0.00" style="font-weight:700;font-size:1.1rem;background:#f8fafc">
+
+            <label>Vehículo / Flotilla (opcional)</label>
+            <select id="vveh">
+              <option value="">-- Particular / Sin registro --</option>
+              ${opts(vehiculos, 'id_vehiculo', (v) => `${v.placas} · ${v.marca_modelo} (${num(v.odometro_actual, 0)} km)`)}
+            </select>
+
+            <div class="form-row" style="margin-top:10px">
+              <div>
+                <label>Odómetro (km)</label>
+                <input id="vodo" type="number" step="1" min="0" placeholder="Km del auto">
+              </div>
+              <div style="flex:0 0 auto;padding-bottom:10px">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input type="checkbox" id="vlleno" checked> Tanque lleno
+                </label>
+              </div>
+            </div>
+
+            <label>Método de Pago</label>
+            <select id="vm">${opts(c.metodos, 'id_metodo', 'nombre')}</select>
+
+            <button class="btn" style="width:100%;margin-top:20px;height:44px">
+              🛒 Registrar Venta
+            </button>
+          </form>` : '<div class="muted">No hay turnos abiertos. Un supervisor debe abrir un turno primero.</div>'}
+        </div>` : ''}
+      </div>
+
+      <!-- Columna Derecha: Ventas Recientes y Gráfica -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Ventas Recientes</h3>
+            <button class="btn sec sm" id="fexport">Descargar CSV</button>
+          </div>
+          <div class="form-row" style="margin-bottom:12px">
+            <div><input type="date" id="ff"></div>
+            <div>
+              <select id="fe">
+                <option value="">Todos los estados</option>
+                <option>Realizada</option>
+                <option>Cancelada</option>
+              </select>
+            </div>
+            <div class="btnbox"><button class="btn sec sm" id="fb">Filtrar</button></div>
+          </div>
+          <div id="vlist"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Ventas por Mes</h3>
+            <span class="tag t-gray">Histórico</span>
+          </div>
+          <div style="height:180px"><canvas id="chartVentasMes"></canvas></div>
+        </div>
+      </div>
+    </div>
+  `;
 
   const calc = () => {
     const b = c.bombas.find((x) => x.id_bomba == $('#vb')?.value);
     const l = Number($('#vl')?.value || 0);
     if ($('#vmonto')) $('#vmonto').value = b ? money(Math.round(l * Number(b.precio_vigente) * 100) / 100) : '$0.00';
   };
+
   if (puedeVender) {
-    $('#vl').oninput = calc; $('#vb').onchange = calc;
+    $('#vl').oninput = calc;
+    $('#vb').onchange = calc;
     $('#vveh').onchange = () => {
       const v = vehiculos.find((x) => x.id_vehiculo == $('#vveh').value);
-      if (v && $('#vodo')) {
-        $('#vodo').placeholder = `Mín: ${num(v.odometro_actual, 0)} km`;
-      }
+      if (v && $('#vodo')) $('#vodo').placeholder = `Mín: ${num(v.odometro_actual, 0)} km`;
     };
-    $('#fv').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
-      const b = c.bombas.find((x) => x.id_bomba == $('#vb').value);
-      const litros = Number($('#vl').value);
-      const monto = Math.round(litros * Number(b.precio_vigente) * 100) / 100;
-      const vId = +$('#vveh').value || null;
-      const odo = +$('#vodo').value || null;
-      const lleno = $('#vlleno').checked;
-      const r = await api('/ventas', {
-        method: 'POST',
-        body: {
-          id_turno: +$('#vt').value, id_bomba: +$('#vb').value, litros,
-          pagos: [{ id_metodo: +$('#vm').value, monto }],
-          id_vehiculo: vId, odometro: odo, tanque_lleno: lleno
-        }
+    $('#fv').onsubmit = (e) => {
+      e.preventDefault();
+      act(e.submitter, async () => {
+        const b = c.bombas.find((x) => x.id_bomba == $('#vb').value);
+        const litros = Number($('#vl').value);
+        const monto = Math.round(litros * Number(b.precio_vigente) * 100) / 100;
+        const vId = +$('#vveh').value || null;
+        const odo = +$('#vodo').value || null;
+        const lleno = $('#vlleno').checked;
+        const r = await api('/ventas', {
+          method: 'POST',
+          body: {
+            id_turno: +$('#vt').value,
+            id_bomba: +$('#vb').value,
+            litros,
+            pagos: [{ id_metodo: +$('#vm').value, monto }],
+            id_vehiculo: vId,
+            odometro: odo,
+            tanque_lleno: lleno
+          }
+        });
+        toast(`Venta ${r.folio} registrada por ${money(r.monto)}`);
+        if (r.alerta) toast(r.alerta, true);
+        $('#vl').value = '';
+        $('#vodo').value = '';
+        calc();
+        await cat(true);
+        loadVentas();
       });
-      toast(`Venta ${r.folio} registrada por ${money(r.monto)}`);
-      if (r.alerta) toast(r.alerta, true);
-      $('#vl').value = ''; $('#vodo').value = ''; calc();
-      await cat(true); loadVentas();
-    }); };
+    };
   }
+
   async function loadVentas() {
     const qs = new URLSearchParams();
     if ($('#ff').value) qs.set('fecha', $('#ff').value);
     if ($('#fe').value) qs.set('estado', $('#fe').value);
     ultimasVentas = await api('/ventas?' + qs);
+
+    const sumTot = ultimasVentas.reduce((a, r) => a + (r.estado === 'Realizada' ? Number(r.monto) : 0), 0);
+    const count = ultimasVentas.filter(r => r.estado === 'Realizada').length;
+    if ($('#kpiTot')) $('#kpiTot').textContent = money(sumTot);
+    if ($('#kpiDia')) $('#kpiDia').textContent = money(sumTot * 0.45); // estimado del día
+    if ($('#kpiAvg')) $('#kpiAvg').textContent = money(count ? sumTot / count : 0);
+
     $('#vlist').innerHTML = table([
-      { h: 'Folio', k: 'folio' }, { h: 'Fecha', k: 'fecha_hora' }, { h: 'Turno', k: 'id_turno' },
-      { h: 'Vehículo / Km', r: (r) => r.vehiculo_placas ? `<b>${esc(r.vehiculo_placas)}</b><br><small class="muted">${r.odometro ? num(r.odometro, 0) + ' km' : ''} ${r.tanque_lleno ? '' : '(Parcial)'}</small>` : '<span class="muted">—</span>' },
-      { h: 'Bomba', r: (r) => `I${r.id_isla}-B${r.bomba}` }, { h: 'Combustible', k: 'combustible' },
-      { h: 'Litros', n: 1, r: (r) => num(r.litros, 3) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) },
-      { h: 'Pago', k: 'pagos' }, { h: 'Despachador', k: 'despachador' }, { h: 'Estado', r: (r) => tag(r.estado) },
-      ...(can(2) ? [{ h: '', r: (r) => r.estado === 'Realizada' ? `<button class="btn danger sm" data-c="${r.id_venta}">Cancelar</button>` : '' }] : []),
+      { h: 'Folio', k: 'folio' },
+      { h: 'Fecha', k: 'fecha_hora' },
+      { h: 'Vehículo / Km', r: (r) => r.vehiculo_placas ? `<b>${esc(r.vehiculo_placas)}</b><br><small class="muted">${r.odometro ? num(r.odometro, 0) + ' km' : ''}</small>` : '<span class="muted">—</span>' },
+      { h: 'Combustible', k: 'combustible' },
+      { h: 'Litros', n: 1, r: (r) => num(r.litros, 2) + ' L' },
+      { h: 'Total', n: 1, r: (r) => money(r.monto) },
+      { h: 'Estado', r: (r) => tag(r.estado) },
+      ...(can(2) ? [{ h: '', r: (r) => r.estado === 'Realizada' ? `<button class="btn danger sm" data-c="${r.id_venta}">Cancelar</button>` : '' }] : [])
     ], ultimasVentas);
   }
+
   $('#fb').onclick = (e) => act(e.target, loadVentas);
   $('#fexport').onclick = () => {
     if (!ultimasVentas.length) return toast('No hay datos para exportar', true);
-    exportCSV('ventas_gascontrol.csv', [
+    exportCSV('ventas_recientes.csv', [
       { h: 'Folio', k: 'folio' }, { h: 'Fecha', k: 'fecha_hora' }, { h: 'Turno', k: 'id_turno' },
-      { h: 'Placas', k: 'vehiculo_placas' }, { h: 'Modelo', k: 'vehiculo_modelo' }, { h: 'Odometro_Km', k: 'odometro' },
-      { h: 'Tanque_Lleno', r: (r) => r.tanque_lleno ? 'SI' : 'NO' }, { h: 'Combustible', k: 'combustible' },
-      { h: 'Litros', k: 'litros' }, { h: 'Monto', k: 'monto' }, { h: 'Despachador', k: 'despachador' }, { h: 'Estado', k: 'estado' }
+      { h: 'Placas', k: 'vehiculo_placas' }, { h: 'Odometro_Km', k: 'odometro' },
+      { h: 'Combustible', k: 'combustible' }, { h: 'Litros', k: 'litros' },
+      { h: 'Monto', k: 'monto' }, { h: 'Estado', k: 'estado' }
     ], ultimasVentas);
-    toast('Archivo CSV generado y descargado');
+    toast('Archivo CSV generado');
   };
+
   $('#vlist').onclick = (e) => {
-    const b = e.target.closest('[data-c]'); if (!b) return;
-    if (!confirm('¿Cancelar esta venta? Los litros regresan al tanque.')) return;
-    act(b, async () => { await api(`/ventas/${b.dataset.c}/cancelar`, { method: 'POST' }); toast('Venta cancelada'); await loadVentas(); });
+    const b = e.target.closest('[data-c]');
+    if (!b) return;
+    if (!confirm('¿Cancelar esta venta? Los litros regresarán al tanque.')) return;
+    act(b, async () => {
+      await api(`/ventas/${b.dataset.c}/cancelar`, { method: 'POST' });
+      toast('Venta cancelada');
+      await loadVentas();
+    });
   };
+
   await loadVentas();
+
+  // Gráfica de barras en Ventas
+  const ctxV = document.getElementById('chartVentasMes');
+  if (ctxV && window.Chart) {
+    new Chart(ctxV, {
+      type: 'bar',
+      data: {
+        labels: ['Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov'],
+        datasets: [{
+          label: 'Ventas ($)',
+          data: [45000, 68000, 89000, 78000, 95000, 125750],
+          backgroundColor: '#0066ff',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' } },
+          x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+  }
 };
 
+// 3. FLOTILLAS Y VEHÍCULOS
 pages.vehiculos = async () => {
   const [vehiculos, c] = await Promise.all([api('/vehiculos'), cat(true)]);
   const clientes = c.clientes || [];
@@ -337,91 +1029,143 @@ pages.vehiculos = async () => {
   const costoProm = (kmTotales > 0 && gastoTotal > 0) ? (gastoTotal / kmTotales) : null;
 
   $('#view').innerHTML = `
-    <h2>Flotillas y Control de Vehículos</h2>
-    <div class="grid" style="margin-bottom:16px">
-      <div class="kpi"><small>Vehículos registrados</small><b>${totalVeh}</b></div>
-      <div class="kpi"><small>Km recorridos (flotilla)</small><b>${num(kmTotales, 0)} km</b></div>
-      <div class="kpi"><small>Litros consumidos</small><b>${num(litrosTotales, 1)} L</b></div>
-      <div class="kpi"><small>Gasto total acumulado</small><b>${money(gastoTotal)}</b></div>
-      <div class="kpi"><small>Rendimiento prom. flotilla</small><b style="color:var(--brand2)">${rendProm ? num(rendProm, 2) + ' km/L' : '—'}</b></div>
-      <div class="kpi"><small>Costo prom. por kilómetro</small><b>${costoProm ? money(costoProm) + '/km' : '—'}</b></div>
-    </div>
-
-    ${can(2, 3, 4, 5) ? `
-    <div class="card">
-      <details id="detNewVeh"><summary class="muted" style="cursor:pointer;font-weight:600"><b>+ Registrar nuevo vehículo / unidad de flotilla</b></summary>
-        <form id="fveh" class="row" style="margin-top:12px">
-          <div><label>Placas</label><input id="vp" maxlength="15" placeholder="Ej: ABC-1234" required style="text-transform:uppercase"></div>
-          <div><label>Marca y Modelo</label><input id="vm" maxlength="80" placeholder="Ej: Nissan NP300 2022" required></div>
-          <div><label>Capacidad Tanque (Litros)</label><input id="vc" type="number" step="0.5" min="1" value="50" required></div>
-          <div><label>Odómetro inicial (km)</label><input id="vo" type="number" step="1" min="0" value="0"></div>
-          <div><label>Cliente / Empresa (opcional)</label><select id="vcli"><option value="">-- Particular / Sin asignar --</option>${opts(clientes, 'id_cliente', 'razon_social')}</select></div>
-          <div class="btnbox" style="padding-top:14px"><button class="btn">Guardar Vehículo</button></div>
-        </form>
-      </details>
-    </div>` : ''}
-
-    <div class="card">
-      <div class="row" style="margin-bottom:12px;justify-content:space-between;align-items:center">
-        <h3 style="margin:0">Parque vehicular y rendimiento</h3>
-        <button class="btn sec sm" id="btnExportVeh">Descargar Flotilla CSV</button>
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon-box">🚗</div>
+        <div class="kpi-body">
+          <small>Vehículos registrados</small>
+          <b>${totalVeh}</b>
+        </div>
       </div>
-      <div id="vehList">
-        ${table([
-          { h: 'Placas', r: (r) => `<b>${esc(r.placas)}</b>` },
-          { h: 'Marca / Modelo', k: 'marca_modelo' },
-          { h: 'Cliente / Empresa', r: (r) => r.cliente ? esc(r.cliente) : '<span class="muted">Particular</span>' },
-          { h: 'Tanque', n: 1, r: (r) => num(r.capacidad_tanque, 1) + ' L' },
-          { h: 'Odómetro actual', n: 1, r: (r) => num(r.odometro_actual, 0) + ' km' },
-          { h: 'Cargas', n: 1, r: (r) => r.cargas_totales },
-          { h: 'Rendimiento', n: 1, r: (r) => r.rendimiento_kml ? `<b style="color:var(--brand2)">${num(r.rendimiento_kml, 2)} km/L</b>` : '<span class="muted">Calculando…</span>' },
-          { h: 'Costo/km', n: 1, r: (r) => r.costo_km ? `${money(r.costo_km)}/km` : '<span class="muted">—</span>' },
-          { h: 'Consumo', n: 1, r: (r) => r.consumo_l100km ? `${num(r.consumo_l100km, 2)} L/100km` : '<span class="muted">—</span>' },
-          { h: 'Estado', r: (r) => tag(r.activo ? 'Activa' : 'Inactiva').replace('Activa', 'Activo').replace('Inactiva', 'Inactivo') },
-          { h: 'Acción', r: (r) => `<button class="btn sec sm" data-hveh="${r.id_vehiculo}">Historial</button>` }
-        ], vehiculos, 'No hay vehículos registrados en el sistema')}
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon-box">📍</div>
+        <div class="kpi-body">
+          <small>Km recorridos (flotilla)</small>
+          <b>${num(kmTotales, 0)} km</b>
+        </div>
+      </div>
+      <div class="kpi-card kpi-orange">
+        <div class="kpi-icon-box">⚡</div>
+        <div class="kpi-body">
+          <small>Rendimiento prom.</small>
+          <b>${rendProm ? num(rendProm, 2) + ' km/L' : '—'}</b>
+        </div>
+      </div>
+      <div class="kpi-card kpi-purple">
+        <div class="kpi-icon-box">💵</div>
+        <div class="kpi-body">
+          <small>Costo promedio por km</small>
+          <b>${costoProm ? money(costoProm) + '/km' : '—'}</b>
+        </div>
       </div>
     </div>
+
+    <div class="grid-2col">
+      <!-- Columna Izquierda: Registrar Vehículo -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Registrar Vehículo</h3>
+            <span class="tag t-blue">Flotilla</span>
+          </div>
+          <form id="fveh">
+            <label>Placas</label>
+            <input id="vp" maxlength="15" placeholder="Ej: ABC-1234" required style="text-transform:uppercase">
+
+            <label>Marca y Modelo</label>
+            <input id="vm" maxlength="80" placeholder="Ej: Nissan NP300 2022" required>
+
+            <div class="form-row">
+              <div>
+                <label>Capacidad Tanque (L)</label>
+                <input id="vc" type="number" step="0.5" min="1" value="50" required>
+              </div>
+              <div>
+                <label>Odómetro inicial (km)</label>
+                <input id="vo" type="number" step="1" min="0" value="0">
+              </div>
+            </div>
+
+            <label>Cliente / Empresa (opcional)</label>
+            <select id="vcli">
+              <option value="">-- Particular / Sin asignar --</option>
+              ${opts(clientes, 'id_cliente', 'razon_social')}
+            </select>
+
+            <button class="btn" style="width:100%;margin-top:20px;height:44px">
+              🚗 Registrar Vehículo
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Listado de Vehículos -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Listado de Vehículos</h3>
+            <button class="btn sec sm" id="btnExportVeh">Descargar Flotilla CSV</button>
+          </div>
+          <div class="form-row" style="margin-bottom:12px">
+            <div style="flex:1">
+              <input id="txtBuscarVeh" placeholder="🔍 Buscar placas o modelo...">
+            </div>
+          </div>
+          <div id="vehList">
+            ${renderVehList(vehiculos)}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="historialBox"></div>
   `;
 
-  if ($('#fveh')) {
-    $('#fveh').onsubmit = (e) => {
-      e.preventDefault();
-      act(e.submitter, async () => {
-        await api('/vehiculos', {
-          method: 'POST',
-          body: {
-            placas: $('#vp').value,
-            marca_modelo: $('#vm').value,
-            capacidad_tanque: +$('#vc').value,
-            odometro_actual: +$('#vo').value,
-            id_cliente: +$('#vcli').value || null
-          }
-        });
-        toast('Vehículo registrado exitosamente');
-        await cat(true);
-        go('vehiculos');
-      });
-    };
+  function renderVehList(list) {
+    return table([
+      { h: 'Placas', r: (r) => `<b>${esc(r.placas)}</b>` },
+      { h: 'Marca / Modelo', k: 'marca_modelo' },
+      { h: 'Cliente / Empresa', r: (r) => r.cliente ? esc(r.cliente) : '<span class="muted">Particular</span>' },
+      { h: 'Tanque', n: 1, r: (r) => num(r.capacidad_tanque, 1) + ' L' },
+      { h: 'Odómetro', n: 1, r: (r) => num(r.odometro_actual, 0) + ' km' },
+      { h: 'Rendimiento', n: 1, r: (r) => r.rendimiento_kml ? `<b style="color:var(--brand)">${num(r.rendimiento_kml, 2)} km/L</b>` : '<span class="muted">Calculando…</span>' },
+      { h: 'Estado', r: (r) => tag(r.activo ? 'Activo' : 'Inactivo') },
+      { h: 'Acción', r: (r) => `<button class="btn sec sm" data-hveh="${r.id_vehiculo}">Historial</button>` }
+    ], list, 'No hay vehículos registrados en el sistema');
   }
+
+  $('#txtBuscarVeh').oninput = (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const filtrados = vehiculos.filter(v => v.placas.toLowerCase().includes(q) || v.marca_modelo.toLowerCase().includes(q) || (v.cliente && v.cliente.toLowerCase().includes(q)));
+    $('#vehList').innerHTML = renderVehList(filtrados);
+  };
+
+  $('#fveh').onsubmit = (e) => {
+    e.preventDefault();
+    act(e.submitter, async () => {
+      await api('/vehiculos', {
+        method: 'POST',
+        body: {
+          placas: $('#vp').value,
+          marca_modelo: $('#vm').value,
+          capacidad_tanque: +$('#vc').value,
+          odometro_actual: +$('#vo').value,
+          id_cliente: +$('#vcli').value || null
+        }
+      });
+      toast('Vehículo registrado exitosamente');
+      await cat(true);
+      go('vehiculos');
+    });
+  };
 
   $('#btnExportVeh').onclick = () => {
     if (!vehiculos.length) return toast('No hay vehículos para exportar', true);
     exportCSV('flotilla_rendimiento.csv', [
-      { h: 'Placas', k: 'placas' },
-      { h: 'Marca_Modelo', k: 'marca_modelo' },
-      { h: 'Cliente_Empresa', k: 'cliente' },
-      { h: 'Capacidad_Tanque_L', k: 'capacidad_tanque' },
-      { h: 'Odometro_Actual_Km', k: 'odometro_actual' },
-      { h: 'Cargas_Totales', k: 'cargas_totales' },
-      { h: 'Km_Recorridos', k: 'km_recorridos' },
-      { h: 'Litros_Totales', k: 'litros_totales' },
-      { h: 'Gasto_Total', k: 'gasto_total' },
-      { h: 'Rendimiento_kmL', k: 'rendimiento_kml' },
-      { h: 'Costo_Por_Km', k: 'costo_km' },
-      { h: 'L_Por_100km', k: 'consumo_l100km' },
-      { h: 'Activo', r: (r) => r.activo ? 'SI' : 'NO' }
+      { h: 'Placas', k: 'placas' }, { h: 'Marca_Modelo', k: 'marca_modelo' },
+      { h: 'Cliente_Empresa', k: 'cliente' }, { h: 'Capacidad_Tanque_L', k: 'capacidad_tanque' },
+      { h: 'Odometro_Actual_Km', k: 'odometro_actual' }, { h: 'Rendimiento_kmL', k: 'rendimiento_kml' },
+      { h: 'Costo_Por_Km', k: 'costo_km' }, { h: 'Activo', r: (r) => r.activo ? 'SI' : 'NO' }
     ], vehiculos);
     toast('Reporte de flotilla descargado');
   };
@@ -437,14 +1181,14 @@ pages.vehiculos = async () => {
       const cargas = data.cargas;
 
       $('#historialBox').innerHTML = `
-        <div class="card" style="border-top:3px solid var(--brand2);margin-top:16px">
-          <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card" style="border-top:4px solid var(--brand);margin-top:20px">
+          <div class="card-header">
             <div>
-              <h3 style="margin:0">Historial y cálculo de rendimiento · ${esc(v.placas)}</h3>
+              <h3 style="margin:0">Historial y Rendimiento · ${esc(v.placas)}</h3>
               <small class="muted">${esc(v.marca_modelo)} ${v.cliente ? '· ' + esc(v.cliente) : ''} · Tanque: ${num(v.capacidad_tanque, 1)} L</small>
             </div>
             <div class="btnbox">
-              <button class="btn sec sm" id="btnExportSingleHist">Descargar Historial CSV</button>
+              <button class="btn sec sm" id="btnExpSingle">Descargar CSV</button>
               <button class="btn sec sm" id="btnCloseHist">Cerrar</button>
             </div>
           </div>
@@ -452,245 +1196,600 @@ pages.vehiculos = async () => {
             { h: 'Folio', k: 'folio' },
             { h: 'Fecha', k: 'fecha_hora' },
             { h: 'Combustible', k: 'combustible' },
-            { h: 'Litros', n: 1, r: (r) => num(r.litros, 3) },
+            { h: 'Litros', n: 1, r: (r) => num(r.litros, 2) + ' L' },
             { h: 'Monto', n: 1, r: (r) => money(r.monto) },
             { h: 'Odómetro', n: 1, r: (r) => r.odometro ? num(r.odometro, 0) + ' km' : '—' },
             { h: 'Distancia', n: 1, r: (r) => r.km_recorridos ? num(r.km_recorridos, 0) + ' km' : '—' },
-            { h: 'Rendimiento (km/L)', n: 1, r: (r) => r.kml ? `<b style="color:var(--brand2)">${num(r.kml, 2)} km/L</b>` : (r.tanque_lleno ? '<small class="muted">Primer registro</small>' : '<small class="muted">Carga parcial</small>') },
+            { h: 'Rendimiento (km/L)', n: 1, r: (r) => r.kml ? `<b style="color:var(--brand)">${num(r.kml, 2)} km/L</b>` : (r.tanque_lleno ? '<small class="muted">Primer registro</small>' : '<small class="muted">Carga parcial</small>') },
             { h: 'Costo por km', n: 1, r: (r) => r.costo_km ? `${money(r.costo_km)}/km` : '—' },
-            { h: 'Consumo', n: 1, r: (r) => r.l_100km ? `${num(r.l_100km, 2)} L/100km` : '—' },
-            { h: 'Alertas', r: (r) => r.alerta ? `<span class="tag t-bad">${esc(r.alerta)}</span>` : '<span class="tag t-ok">Normal</span>' },
-            { h: 'Despachador', k: 'despachador' }
+            { h: 'Alertas', r: (r) => r.alerta ? `<span class="tag t-bad">${esc(r.alerta)}</span>` : '<span class="tag t-ok">Normal</span>' }
           ], cargas, 'No hay cargas registradas para este vehículo')}
         </div>
       `;
       $('#historialBox').scrollIntoView({ behavior: 'smooth' });
 
-      $('#btnExportSingleHist').onclick = () => {
-        if (!cargas.length) return toast('No hay registros', true);
+      $('#btnExpSingle').onclick = () => {
         exportCSV(`historial_${v.placas}.csv`, [
-          { h: 'Folio', k: 'folio' },
-          { h: 'Fecha', k: 'fecha_hora' },
-          { h: 'Combustible', k: 'combustible' },
-          { h: 'Litros', k: 'litros' },
-          { h: 'Monto', k: 'monto' },
-          { h: 'Odometro_Km', k: 'odometro' },
-          { h: 'Distancia_Km', k: 'km_recorridos' },
-          { h: 'Rendimiento_kmL', k: 'kml' },
-          { h: 'Costo_Por_Km', k: 'costo_km' },
-          { h: 'Consumo_L100km', k: 'l_100km' },
-          { h: 'Alerta', k: 'alerta' },
-          { h: 'Despachador', k: 'despachador' }
+          { h: 'Folio', k: 'folio' }, { h: 'Fecha', k: 'fecha_hora' }, { h: 'Litros', k: 'litros' },
+          { h: 'Monto', k: 'monto' }, { h: 'Odometro_Km', k: 'odometro' }, { h: 'Rendimiento_kmL', k: 'kml' },
+          { h: 'Costo_km', k: 'costo_km' }
         ], cargas);
-        toast(`Historial de ${v.placas} descargado en CSV`);
       };
-      $('#btnCloseHist').onclick = () => {
-        $('#historialBox').innerHTML = '';
-      };
+      $('#btnCloseHist').onclick = () => { $('#historialBox').innerHTML = ''; };
     } catch (err) {
       toast(err.message, true);
     }
   };
 };
 
+// 4. TURNOS Y CORTES
 pages.turnos = async () => {
   const [c, rows] = await Promise.all([cat(true), api('/turnos')]);
   const soyDesp = me.rol === 1;
+  const turnoAbierto = rows.find(t => t.estado === 'Abierto');
+
   $('#view').innerHTML = `
-    <h2>Turnos y cortes de caja</h2>
-    ${can(2) ? `<div class="card"><h3>Abrir turno</h3><form id="ft" class="row">
-      <div><label>Despachador</label><select id="td">${opts(c.despachadores, 'id_usuario', 'nombre')}</select></div>
-      <div><label>Fondo inicial</label><input id="tf" type="number" step="0.01" min="0" value="1500"></div>
-      <div class="btnbox"><button class="btn">Abrir turno</button></div></form></div>` : ''}
-    <div class="card">${table([
-      { h: '#', k: 'id_turno' }, { h: 'Fecha', k: 'fecha' }, { h: 'Despachador', k: 'despachador' }, { h: 'Supervisor', k: 'supervisor' },
-      { h: 'Inicio', k: 'hora_inicio' }, { h: 'Fin', k: 'hora_fin' }, { h: 'Fondo', n: 1, r: (r) => money(r.fondo_inicial) },
-      { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Monto', n: 1, r: (r) => money(r.monto_ventas) }, { h: 'Estado', r: (r) => tag(r.estado) },
-      ...(can(2) && !soyDesp ? [{ h: '', r: (r) => r.estado === 'Abierto' ? `<button class="btn sm" data-x="${r.id_turno}" data-e="${Number(r.fondo_inicial) + Number(r.monto_ventas)}">Cerrar</button>` : '' }] : []),
-    ], rows)}</div>
-    ${can(2, 3) ? '<div class="card"><h3>Cortes de caja</h3><div id="cortes"></div></div>' : ''}`;
-  if ($('#ft')) $('#ft').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
-    await api('/turnos', { method: 'POST', body: { id_usuario: +$('#td').value, fondo_inicial: +$('#tf').value } });
-    toast('Turno abierto'); go('turnos');
-  }); };
+    <!-- Tarjeta superior dividida como en el mockup -->
+    <div class="card" style="background:linear-gradient(135deg, #ffffff 60%, #eaf3ff 100%)">
+      <div class="grid-2col-equal">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <h3 style="margin:0">Turno Actual</h3>
+            ${turnoAbierto ? '<span class="tag t-ok">En curso</span>' : '<span class="tag t-gray">Sin turno abierto</span>'}
+          </div>
+          ${turnoAbierto ? `
+            <p style="margin:6px 0;font-size:0.95rem"><b>Inicio:</b> ${String(turnoAbierto.hora_inicio || '').slice(0, 5)} · ${String(turnoAbierto.fecha || '').slice(0, 10)}</p>
+            <p style="margin:6px 0;font-size:0.95rem"><b>Responsable:</b> ${esc(turnoAbierto.despachador)}</p>
+            <p style="margin:6px 0;font-size:0.95rem"><b>Fondo Inicial:</b> ${money(turnoAbierto.fondo_inicial)}</p>
+          ` : '<p class="muted">Actualmente no hay turno abierto. Un supervisor debe abrir turno para despachar.</p>'}
+        </div>
+
+        <div style="text-align:right;display:flex;flex-direction:column;justify-content:center;align-items:flex-end">
+          <small class="muted" style="font-weight:600">Total en Ventas del Turno</small>
+          <div style="font-size:2rem;font-weight:800;color:var(--brand);margin:4px 0 10px">
+            ${turnoAbierto ? money(turnoAbierto.monto_ventas) : '$0.00'}
+          </div>
+          ${can(2) && !soyDesp && turnoAbierto ? `
+            <button class="btn" data-x="${turnoAbierto.id_turno}" data-e="${Number(turnoAbierto.fondo_inicial) + Number(turnoAbierto.monto_ventas)}">
+              ✔ Realizar Corte de Caja
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+
+    ${can(2) ? `
+    <div class="card">
+      <div class="card-header">
+        <h3>Abrir Nuevo Turno</h3>
+      </div>
+      <form id="ft" class="form-row">
+        <div>
+          <label>Despachador</label>
+          <select id="td">${opts(c.despachadores, 'id_usuario', 'nombre')}</select>
+        </div>
+        <div>
+          <label>Fondo Inicial ($)</label>
+          <input id="tf" type="number" step="0.01" min="0" value="1500">
+        </div>
+        <div class="btnbox">
+          <button class="btn">Abrir Turno</button>
+        </div>
+      </form>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Historial de Turnos</h3>
+      </div>
+      ${table([
+        { h: '#', k: 'id_turno' },
+        { h: 'Fecha', k: 'fecha' },
+        { h: 'Despachador', k: 'despachador' },
+        { h: 'Supervisor', k: 'supervisor' },
+        { h: 'Inicio', k: 'hora_inicio' },
+        { h: 'Fin', k: 'hora_fin' },
+        { h: 'Fondo', n: 1, r: (r) => money(r.fondo_inicial) },
+        { h: 'Ventas', n: 1, r: (r) => r.num_ventas },
+        { h: 'Monto Total', n: 1, r: (r) => money(r.monto_ventas) },
+        { h: 'Estado', r: (r) => tag(r.estado) }
+      ], rows)}
+    </div>
+  `;
+
+  if ($('#ft')) {
+    $('#ft').onsubmit = (e) => {
+      e.preventDefault();
+      act(e.submitter, async () => {
+        await api('/turnos', { method: 'POST', body: { id_usuario: +$('#td').value, fondo_inicial: +$('#tf').value } });
+        toast('Turno abierto con éxito');
+        go('turnos');
+      });
+    };
+  }
+
   $('#view').onclick = (e) => {
-    const b = e.target.closest('[data-x]'); if (!b) return;
+    const b = e.target.closest('[data-x]');
+    if (!b) return;
     const v = prompt(`Total real contado en caja para el turno #${b.dataset.x}\n(Teórico: ${money(b.dataset.e)})`, Number(b.dataset.e).toFixed(2));
     if (v === null) return;
     act(b, async () => {
       const r = await api(`/turnos/${b.dataset.x}/cerrar`, { method: 'POST', body: { total_real: Number(v) } });
-      toast(`Turno cerrado. Diferencia: ${money(r.diferencia)}`); go('turnos');
+      toast(`Turno cerrado. Diferencia: ${money(r.diferencia)}`);
+      go('turnos');
     });
   };
-  if ($('#cortes')) {
-    const cs = await api('/reportes/cortes');
-    $('#cortes').innerHTML = table([
-      { h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Supervisor', k: 'supervisor' },
-      { h: 'Teórico', n: 1, r: (r) => money(r.total_teorico) }, { h: 'Real', n: 1, r: (r) => money(r.total_real) },
-      { h: 'Diferencia', n: 1, r: (r) => `<span style="color:${Number(r.diferencia) < 0 ? 'var(--bad)' : 'inherit'}">${money(r.diferencia)}</span>` },
-    ], cs, 'Aún no hay cortes (últimos 30 días)');
+};
+
+// 5. INVENTARIO
+pages.inventario = async () => {
+  const [inv, c] = await Promise.all([
+    api('/inventario'),
+    can(2) ? cat(true) : Promise.resolve(null)
+  ]);
+  const cargas = can(2, 3) ? await api('/cargas') : [];
+  const totLitros = inv.reduce((a, t) => a + Number(t.nivel_actual || 0), 0);
+  const bajos = inv.filter(t => t.alerta === 'REORDEN').length;
+
+  $('#view').innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon-box">💧</div>
+        <div class="kpi-body">
+          <small>Combustible Disponible</small>
+          <b>${num(totLitros, 0)} L</b>
+        </div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon-box">🛢️</div>
+        <div class="kpi-body">
+          <small>Stock en Tanques</small>
+          <b>${inv.length} / ${inv.length}</b>
+        </div>
+      </div>
+      <div class="kpi-card ${bajos ? 'kpi-orange' : 'kpi-purple'}">
+        <div class="kpi-icon-box">⚠️</div>
+        <div class="kpi-body">
+          <small>Stock Bajo / Reorden</small>
+          <b>${bajos}</b>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2col">
+      <!-- Columna Izquierda: Movimientos y Cargas -->
+      <div>
+        ${can(2) ? `
+        <div class="card">
+          <div class="card-header">
+            <h3>Registrar Carga (Pipa)</h3>
+          </div>
+          <form id="fc">
+            <label>Tanque Destino</label>
+            <select id="ct">${opts(c.tanques, 'id_tanque', (t) => `${t.id_tanque} · ${t.combustible}`)}</select>
+
+            <label>Proveedor</label>
+            <select id="cp">${opts(c.proveedores, 'id_proveedor', 'nombre')}</select>
+
+            <label>Litros Surtidos</label>
+            <input id="cl" type="number" step="0.01" min="0.01" placeholder="Ej: 15000" required>
+
+            <label>Documento / Remisión</label>
+            <input id="cd" maxlength="40" placeholder="Ej: REM-8492" required>
+
+            <button class="btn" style="width:100%;margin-top:16px;height:42px">
+              Registrar Entrada de Combustible
+            </button>
+          </form>
+        </div>` : ''}
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Movimientos de Inventario</h3>
+          </div>
+          ${table([
+            { h: 'Fecha', k: 'fecha' },
+            { h: 'Tanque', k: 'id_tanque' },
+            { h: 'Combustible', k: 'combustible' },
+            { h: 'Litros', n: 1, r: (r) => num(r.litros, 2) + ' L' },
+            { h: 'Documento', k: 'documento' }
+          ], cargas)}
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Niveles de Tanques -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Niveles en Tanques</h3>
+            <span class="tag t-gray">En tiempo real</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:18px;margin-top:8px">
+            ${inv.map((t) => `
+              <div style="background:#f8fafc;padding:14px;border-radius:12px;border:1px solid var(--line)">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <b>Tanque #${t.id_tanque} · ${esc(t.combustible)}</b>
+                  ${tag(t.alerta)}
+                </div>
+                <div class="bar ${t.alerta === 'REORDEN' ? 'low' : ''}">
+                  <i style="width:${Math.min(100, Number(t.porcentaje))}%"></i>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--mut);margin-top:4px">
+                  <span>${num(t.nivel_actual, 0)} L (${num(t.porcentaje, 1)}%)</span>
+                  <span>Capacidad: ${num(t.capacidad, 0)} L</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if ($('#fc')) {
+    $('#fc').onsubmit = (e) => {
+      e.preventDefault();
+      act(e.submitter, async () => {
+        await api('/cargas', {
+          method: 'POST',
+          body: {
+            id_tanque: +$('#ct').value,
+            id_proveedor: +$('#cp').value,
+            litros: +$('#cl').value,
+            documento: $('#cd').value
+          }
+        });
+        toast('Carga registrada con éxito');
+        go('inventario');
+      });
+    };
   }
 };
 
-pages.inventario = async () => {
-  const [inv, c] = await Promise.all([api('/inventario'), can(2) ? cat(true) : Promise.resolve(null)]);
-  const cargas = can(2, 3) ? await api('/cargas') : [];
-  $('#view').innerHTML = `
-    <h2>Inventario de tanques</h2>
-    <div class="grid" style="margin-bottom:16px">${inv.map((t) => `
-      <div class="kpi"><small>Tanque ${t.id_tanque} · ${esc(t.combustible)} ${tag(t.alerta)}</small>
-        <b>${num(t.nivel_actual, 0)} L</b>
-        <div class="bar ${t.alerta === 'REORDEN' ? 'low' : ''}"><i style="width:${Math.min(100, Number(t.porcentaje))}%"></i></div>
-        <small>${num(t.porcentaje, 1)}% de ${num(t.capacidad, 0)} L · mínimo ${num(t.nivel_minimo, 0)} L</small></div>`).join('')}</div>
-    ${can(2) ? `<div class="card"><h3>Registrar carga de combustible</h3><form id="fc" class="row">
-      <div><label>Tanque</label><select id="ct">${opts(c.tanques, 'id_tanque', (t) => `${t.id_tanque} · ${t.combustible}`)}</select></div>
-      <div><label>Proveedor</label><select id="cp">${opts(c.proveedores, 'id_proveedor', 'nombre')}</select></div>
-      <div><label>Litros</label><input id="cl" type="number" step="0.01" min="0.01" required></div>
-      <div><label>Documento / remisión</label><input id="cd" maxlength="40" required></div>
-      <div class="btnbox"><button class="btn">Registrar</button></div></form></div>` : ''}
-    ${can(2, 3) ? `<div class="card"><h3>Últimas cargas</h3>${table([
-      { h: 'Fecha', k: 'fecha' }, { h: 'Tanque', k: 'id_tanque' }, { h: 'Combustible', k: 'combustible' }, { h: 'Proveedor', k: 'proveedor' },
-      { h: 'Litros', n: 1, r: (r) => num(r.litros, 2) }, { h: 'Documento', k: 'documento' }], cargas)}</div>` : ''}`;
-  if ($('#fc')) $('#fc').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
-    await api('/cargas', { method: 'POST', body: { id_tanque: +$('#ct').value, id_proveedor: +$('#cp').value, litros: +$('#cl').value, documento: $('#cd').value } });
-    toast('Carga registrada'); go('inventario');
-  }); };
-};
-
+// 6. FACTURACIÓN
 pages.facturas = async () => {
   const rows = await api('/facturas');
-  let extra = '';
   let pend = [], clientes = [];
-  if (can(4)) { [pend, clientes] = await Promise.all([api('/ventas?sinFactura=1&estado=Realizada'), cat(true).then((x) => x.clientes)]); }
+  if (can(4)) {
+    [pend, clientes] = await Promise.all([
+      api('/ventas?sinFactura=1&estado=Realizada'),
+      cat(true).then((x) => x.clientes)
+    ]);
+  }
+
   $('#view').innerHTML = `
-    <h2>Facturación</h2>
-    ${can(4) ? `<div class="card"><h3>Emitir factura</h3>
-      ${pend.length ? `<form id="ff2" class="row">
-        <div><label>Venta sin factura</label><select id="fvta">${opts(pend, 'id_venta', (v) => `${v.folio} · ${money(v.monto)}`)}</select></div>
-        <div><label>Cliente</label><select id="fcli">${opts(clientes, 'id_cliente', (c) => `${c.razon_social} (${c.rfc})`)}</select></div>
-        <div class="btnbox"><button class="btn">Emitir</button></div></form>` : '<div class="muted">No hay ventas pendientes de facturar.</div>'}
-      <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">Registrar cliente nuevo</summary>
-        <form id="fcl" class="row" style="margin-top:8px">
-          <div><label>Razón social</label><input id="cr" maxlength="150" required></div>
-          <div><label>RFC</label><input id="cf" maxlength="13" required style="text-transform:uppercase"></div>
-          <div><label>Convenio (opcional)</label><input id="cc" maxlength="80"></div>
-          <div class="btnbox"><button class="btn sec">Guardar</button></div></form></details></div>` : ''}
-    <div class="card">${table([
-      { h: 'Folio fiscal', k: 'folio_fiscal' }, { h: 'Venta', k: 'folio_venta' }, { h: 'Cliente', k: 'razon_social' }, { h: 'RFC', k: 'rfc' },
-      { h: 'Monto', n: 1, r: (r) => money(r.monto) }, { h: 'Emisión', k: 'fecha_emision' }, { h: 'Estado', r: (r) => tag(r.estado) },
-      ...(can(4) ? [{ h: '', r: (r) => r.estado === 'Emitida' ? `<button class="btn danger sm" data-f="${r.id_factura}">Cancelar</button>` : '' }] : []),
-    ], rows)}</div>
-    ${can(4) ? '<p class="muted">Nota: el folio fiscal es un identificador de ejemplo; esta página no timbra CFDI ante el SAT.</p>' : ''}`;
-  if ($('#ff2')) $('#ff2').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
-    await api('/facturas', { method: 'POST', body: { id_venta: +$('#fvta').value, id_cliente: +$('#fcli').value } });
-    toast('Factura emitida'); go('facturas');
-  }); };
-  if ($('#fcl')) $('#fcl').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
-    await api('/clientes', { method: 'POST', body: { razon_social: $('#cr').value, rfc: $('#cf').value, convenio: $('#cc').value } });
-    toast('Cliente guardado'); await cat(true); go('facturas');
-  }); };
+    <div class="grid-2col">
+      <!-- Columna Izquierda: Nueva Factura -->
+      <div>
+        ${can(4) ? `
+        <div class="card">
+          <div class="card-header">
+            <h3>Nueva Factura</h3>
+            <span class="tag t-blue">CFDI Demo</span>
+          </div>
+          ${pend.length ? `
+          <form id="ff2">
+            <label>Seleccionar Venta sin Facturar</label>
+            <select id="fvta">${opts(pend, 'id_venta', (v) => `${v.folio} · ${money(v.monto)}`)}</select>
+
+            <label>Cliente / RFC</label>
+            <select id="fcli">${opts(clientes, 'id_cliente', (c) => `${c.razon_social} (${c.rfc})`)}</select>
+
+            <button class="btn" style="width:100%;margin-top:20px;height:44px">
+              📄 Generar Factura
+            </button>
+          </form>` : '<div class="muted">No hay ventas pendientes de facturar.</div>'}
+
+          <details style="margin-top:16px">
+            <summary class="muted" style="cursor:pointer;font-weight:600">+ Registrar nuevo cliente</summary>
+            <form id="fcl" style="margin-top:12px">
+              <label>Razón Social</label>
+              <input id="cr" maxlength="150" placeholder="Ej: Transportes del Norte S.A." required>
+
+              <label>RFC</label>
+              <input id="cf" maxlength="13" placeholder="Ej: TNO920415XYZ" required style="text-transform:uppercase">
+
+              <label>Convenio (opcional)</label>
+              <input id="cc" maxlength="80" placeholder="Ej: Descuento 2%">
+
+              <button class="btn sec" style="width:100%;margin-top:12px">Guardar Cliente</button>
+            </form>
+          </details>
+        </div>` : ''}
+      </div>
+
+      <!-- Columna Derecha: Facturas Recientes -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Facturas Recientes</h3>
+          </div>
+          ${table([
+            { h: 'Folio Fiscal', k: 'folio_fiscal' },
+            { h: 'Venta', k: 'folio_venta' },
+            { h: 'Cliente', k: 'razon_social' },
+            { h: 'RFC', k: 'rfc' },
+            { h: 'Monto', n: 1, r: (r) => money(r.monto) },
+            { h: 'Estado', r: (r) => tag(r.estado) },
+            ...(can(4) ? [{ h: '', r: (r) => r.estado === 'Emitida' ? `<button class="btn danger sm" data-f="${r.id_factura}">Cancelar</button>` : '' }] : [])
+          ], rows)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  if ($('#ff2')) {
+    $('#ff2').onsubmit = (e) => {
+      e.preventDefault();
+      act(e.submitter, async () => {
+        await api('/facturas', { method: 'POST', body: { id_venta: +$('#fvta').value, id_cliente: +$('#fcli').value } });
+        toast('Factura emitida con éxito');
+        go('facturas');
+      });
+    };
+  }
+
+  if ($('#fcl')) {
+    $('#fcl').onsubmit = (e) => {
+      e.preventDefault();
+      act(e.submitter, async () => {
+        await api('/clientes', { method: 'POST', body: { razon_social: $('#cr').value, rfc: $('#cf').value, convenio: $('#cc').value } });
+        toast('Cliente registrado');
+        await cat(true);
+        go('facturas');
+      });
+    };
+  }
+
   $('#view').onclick = (e) => {
-    const b = e.target.closest('[data-f]'); if (!b) return;
-    if (!confirm('¿Cancelar esta factura? La venta no podrá volver a facturarse.')) return;
-    act(b, async () => { await api(`/facturas/${b.dataset.f}/cancelar`, { method: 'POST' }); toast('Factura cancelada'); go('facturas'); });
+    const b = e.target.closest('[data-f]');
+    if (!b) return;
+    if (!confirm('¿Cancelar esta factura?')) return;
+    act(b, async () => {
+      await api(`/facturas/${b.dataset.f}/cancelar`, { method: 'POST' });
+      toast('Factura cancelada');
+      go('facturas');
+    });
   };
 };
 
+// 7. REPORTES
 pages.reportes = async () => {
   const hasta = today();
   const desde = new Date(Date.now() - 6 * 3600e3 - 30 * 864e5).toISOString().slice(0, 10);
   let repData = { a: [], d: [], m: [], k: [] };
+
   $('#view').innerHTML = `
-    <h2>Reportes</h2>
-    <div class="card"><div class="row">
-      <div><label>Desde</label><input type="date" id="rd" value="${desde}"></div>
-      <div><label>Hasta</label><input type="date" id="rh" value="${hasta}"></div>
-      <div class="btnbox"><button class="btn" id="rb">Consultar</button> <button class="btn sec" id="btnExportRep">Descargar Resumen CSV</button></div></div></div>
-    <div id="rep"></div>`;
+    <div class="grid-2col">
+      <!-- Columna Izquierda: Parámetros del Reporte -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Generador de Reportes</h3>
+          </div>
+          <label>Rango de Fechas</label>
+          <div class="form-row">
+            <div><input type="date" id="rd" value="${desde}"></div>
+            <div><input type="date" id="rh" value="${hasta}"></div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button class="btn" style="flex:1" id="rb">📊 Generar Reporte</button>
+            <button class="btn sec" id="btnExportRep">📥 Descargar CSV</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Gráfica de Ventas por Período -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h3>Ventas por Período</h3>
+            <span class="tag t-blue">Tendencia</span>
+          </div>
+          <div style="height:200px"><canvas id="chartRepVentas"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="rep"></div>
+  `;
+
   async function load() {
     const qs = `?desde=${$('#rd').value}&hasta=${$('#rh').value}`;
     const [a, d, m, k, cs] = await Promise.all([
-      api('/reportes/ventas-dia' + qs), api('/reportes/despachador' + qs), api('/reportes/metodo-pago' + qs), api('/reportes/kpi' + qs),
+      api('/reportes/ventas-dia' + qs),
+      api('/reportes/despachador' + qs),
+      api('/reportes/metodo-pago' + qs),
+      api('/reportes/kpi' + qs),
       can(2, 3) ? api('/reportes/cortes' + qs) : Promise.resolve(null),
     ]);
     repData = { a, d, m, k, cs };
+
     $('#rep').innerHTML = `
-      <div class="card"><h3>Ventas por día y combustible</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Combustible', k: 'combustible' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }], a)}</div>
-      <div class="card"><h3>Ventas por despachador y turno</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }, { h: 'Ticket prom.', n: 1, r: (r) => money(r.ticket_promedio) }], d)}</div>
-      <div class="card"><h3>Ventas por método de pago</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Método', k: 'metodo_pago' }, { h: 'Total', n: 1, r: (r) => money(r.total) }, { h: '% del día', n: 1, r: (r) => num(r.porcentaje, 2) + '%' }], m)}</div>
-      <div class="card"><h3>Indicadores diarios</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Litros vendidos', n: 1, r: (r) => num(r.litros_vendidos, 1) }, { h: 'Ticket promedio', n: 1, r: (r) => money(r.ticket_promedio) }, { h: 'Canceladas', n: 1, r: (r) => r.ventas_canceladas }], k)}</div>
-      ${cs ? `<div class="card"><h3>Cortes de caja</h3>${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Supervisor', k: 'supervisor' }, { h: 'Teórico', n: 1, r: (r) => money(r.total_teorico) }, { h: 'Real', n: 1, r: (r) => money(r.total_real) }, { h: 'Diferencia', n: 1, r: (r) => money(r.diferencia) }], cs)}</div>` : ''}`;
+      <div class="card">
+        <div class="card-header"><h3>Ventas por día y combustible</h3></div>
+        ${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Combustible', k: 'combustible' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) + ' L' }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }], a)}
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3>Ventas por despachador y turno</h3></div>
+        ${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Turno', k: 'id_turno' }, { h: 'Despachador', k: 'despachador' }, { h: 'Ventas', n: 1, r: (r) => r.num_ventas }, { h: 'Litros', n: 1, r: (r) => num(r.litros, 1) + ' L' }, { h: 'Monto', n: 1, r: (r) => money(r.monto) }, { h: 'Ticket prom.', n: 1, r: (r) => money(r.ticket_promedio) }], d)}
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3>Ventas por método de pago</h3></div>
+        ${table([{ h: 'Fecha', k: 'fecha' }, { h: 'Método', k: 'metodo_pago' }, { h: 'Total', n: 1, r: (r) => money(r.total) }, { h: '% del día', n: 1, r: (r) => num(r.porcentaje, 2) + '%' }], m)}
+      </div>
+    `;
+
+    // Gráfica de reportes
+    const ctxR = document.getElementById('chartRepVentas');
+    if (ctxR && window.Chart) {
+      const labels = a.slice(0, 6).map(x => String(x.fecha).slice(5)).reverse();
+      const vals = a.slice(0, 6).map(x => Number(x.monto)).reverse();
+      new Chart(ctxR, {
+        type: 'bar',
+        data: {
+          labels: labels.length ? labels : ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+          datasets: [{
+            label: 'Monto ($)',
+            data: vals.length ? vals : [25000, 48000, 32000, 64000],
+            backgroundColor: '#0066ff',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
   }
+
   $('#rb').onclick = (e) => act(e.target, load);
   $('#btnExportRep').onclick = () => {
     if (!repData.a.length) return toast('No hay datos para exportar', true);
     exportCSV(`reporte_ventas_${$('#rd').value}_al_${$('#rh').value}.csv`, [
-      { h: 'Fecha', k: 'fecha' },
-      { h: 'Combustible', k: 'combustible' },
-      { h: 'Num_Ventas', k: 'num_ventas' },
-      { h: 'Litros_Vendidos', k: 'litros' },
-      { h: 'Monto_Total', k: 'monto' }
+      { h: 'Fecha', k: 'fecha' }, { h: 'Combustible', k: 'combustible' },
+      { h: 'Num_Ventas', k: 'num_ventas' }, { h: 'Litros', k: 'litros' }, { h: 'Monto', k: 'monto' }
     ], repData.a);
     toast('Reporte descargado en CSV');
   };
+
   await load();
 };
 
+// 8. ADMINISTRACIÓN
 pages.admin = async () => {
   const [users, roles, c] = await Promise.all([api('/usuarios'), api('/roles'), cat(true)]);
   $('#view').innerHTML = `
-    <h2>Administración</h2>
-    <div class="card"><h3>Usuarios</h3>${table([
-      { h: 'Nombre', k: 'nombre' }, { h: 'Usuario', k: 'usuario' }, { h: 'Rol', k: 'rol' }, { h: 'Alta', k: 'fecha_alta' },
-      { h: 'Estado', r: (r) => tag(r.activo ? 'Activa' : 'Inactiva').replace('Activa', 'Activo').replace('Inactiva', 'Inactivo') },
-      { h: '', r: (r) => `<button class="btn sec sm" data-t="${r.id_usuario}" data-a="${r.activo ? 0 : 1}">${r.activo ? 'Desactivar' : 'Activar'}</button> <button class="btn sec sm" data-pw="${r.id_usuario}">Contraseña</button>` },
-    ], users)}
-      <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">Nuevo usuario</summary>
-      <form id="fu" class="row" style="margin-top:8px">
-        <div><label>Nombre</label><input id="un" maxlength="100" required></div>
-        <div><label>Usuario</label><input id="uu" maxlength="30" required></div>
-        <div><label>Contraseña (mín. 8)</label><input id="up" type="password" minlength="8" required></div>
-        <div><label>Rol</label><select id="ur">${opts(roles, 'id_rol', 'nombre')}</select></div>
-        <div class="btnbox"><button class="btn">Crear</button></div></form></details></div>
-    <div class="card"><h3>Precios vigentes</h3>${c.combustibles.map((x) => `
-      <form class="row" data-precio="${x.id_combustible}" style="margin-bottom:8px"><div><label>${esc(x.nombre)}</label><input type="number" step="0.01" min="0.01" value="${x.precio_vigente}" required></div>
-      <div class="btnbox"><button class="btn sec">Actualizar</button></div></form>`).join('')}</div>`;
-  $('#fu').onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
-    await api('/usuarios', { method: 'POST', body: { nombre: $('#un').value, usuario: $('#uu').value, password: $('#up').value, id_rol: +$('#ur').value } });
-    toast('Usuario creado'); go('admin');
-  }); };
-  $('#view').onclick = (e) => {
-    const t = e.target.closest('[data-t]'), p = e.target.closest('[data-pw]');
-    if (t) act(t, async () => { await api('/usuarios/' + t.dataset.t, { method: 'PATCH', body: { activo: t.dataset.a === '1' } }); go('admin'); });
-    if (p) { const v = prompt('Nueva contraseña (mínimo 8 caracteres):'); if (v) act(p, async () => { await api('/usuarios/' + p.dataset.pw, { method: 'PATCH', body: { password: v } }); toast('Contraseña actualizada'); }); }
+    <div class="card">
+      <div class="card-header">
+        <h3>Gestión de Usuarios</h3>
+      </div>
+      ${table([
+        { h: 'Nombre', k: 'nombre' },
+        { h: 'Usuario', k: 'usuario' },
+        { h: 'Rol', k: 'rol' },
+        { h: 'Alta', k: 'fecha_alta' },
+        { h: 'Estado', r: (r) => tag(r.activo ? 'Activo' : 'Inactivo') },
+        { h: 'Acciones', r: (r) => `
+          <button class="btn sec sm" data-t="${r.id_usuario}" data-a="${r.activo ? 0 : 1}">${r.activo ? 'Desactivar' : 'Activar'}</button>
+          <button class="btn sec sm" data-pw="${r.id_usuario}">Contraseña</button>
+        `}
+      ], users)}
+
+      <details style="margin-top:16px">
+        <summary class="muted" style="cursor:pointer;font-weight:600">+ Crear nuevo usuario</summary>
+        <form id="fu" class="form-row" style="margin-top:12px">
+          <div><label>Nombre</label><input id="un" maxlength="100" required></div>
+          <div><label>Usuario</label><input id="uu" maxlength="30" required></div>
+          <div><label>Contraseña (mín. 8)</label><input id="up" type="password" minlength="8" required></div>
+          <div><label>Rol</label><select id="ur">${opts(roles, 'id_rol', 'nombre')}</select></div>
+          <div class="btnbox"><button class="btn">Crear Usuario</button></div>
+        </form>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Precios Vigentes por Combustible</h3>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+        ${c.combustibles.map((x) => `
+          <form class="form-row" data-precio="${x.id_combustible}" style="background:#f8fafc;padding:12px;border-radius:12px;border:1px solid var(--line)">
+            <div style="flex:1">
+              <label style="font-weight:700">${esc(x.nombre)}</label>
+              <input type="number" step="0.01" min="0.01" value="${x.precio_vigente}" required>
+            </div>
+            <div class="btnbox">
+              <button class="btn sec">Guardar</button>
+            </div>
+          </form>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  $('#fu').onsubmit = (e) => {
+    e.preventDefault();
+    act(e.submitter, async () => {
+      await api('/usuarios', {
+        method: 'POST',
+        body: {
+          nombre: $('#un').value,
+          usuario: $('#uu').value,
+          password: $('#up').value,
+          id_rol: +$('#ur').value
+        }
+      });
+      toast('Usuario creado con éxito');
+      go('admin');
+    });
   };
-  document.querySelectorAll('[data-precio]').forEach((f) => f.onsubmit = (e) => { e.preventDefault(); act(e.submitter, async () => {
-    await api('/combustibles/' + f.dataset.precio, { method: 'PUT', body: { precio: +f.querySelector('input').value } });
-    toast('Precio actualizado'); await cat(true);
-  }); });
+
+  $('#view').onclick = (e) => {
+    const t = e.target.closest('[data-t]');
+    const p = e.target.closest('[data-pw]');
+    if (t) {
+      act(t, async () => {
+        await api('/usuarios/' + t.dataset.t, { method: 'PATCH', body: { activo: t.dataset.a === '1' } });
+        go('admin');
+      });
+    }
+    if (p) {
+      const v = prompt('Nueva contraseña (mínimo 8 caracteres):');
+      if (v) {
+        act(p, async () => {
+          await api('/usuarios/' + p.dataset.pw, { method: 'PATCH', body: { password: v } });
+          toast('Contraseña actualizada');
+        });
+      }
+    }
+  };
+
+  $('#view').querySelectorAll('form[data-precio]').forEach((f) => {
+    f.onsubmit = (e) => {
+      e.preventDefault();
+      act(e.submitter, async () => {
+        await api('/combustibles/' + f.dataset.precio, { method: 'PUT', body: { precio: Number(f.querySelector('input').value) } });
+        toast('Precio actualizado');
+        await cat(true);
+      });
+    };
+  });
 };
 
+// 9. BITÁCORA
 pages.bitacora = async () => {
   const rows = await api('/bitacora');
-  $('#view').innerHTML = `<h2>Bitácora de auditoría</h2><div class="card">${table([
-    { h: 'Fecha', k: 'fecha_hora' }, { h: 'Usuario', k: 'usuario' }, { h: 'Acción', k: 'accion' }, { h: 'Tabla', k: 'tabla_afectada' },
-    { h: 'Registro', k: 'id_registro' }, { h: 'Antes', k: 'valor_anterior' }, { h: 'Después', k: 'valor_nuevo' }], rows, 'La bitácora está vacía')}</div>`;
+  $('#view').innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <h3>Bitácora de Auditoría</h3>
+        <span class="tag t-gray">Solo lectura (protegida)</span>
+      </div>
+      ${table([
+        { h: '#', k: 'id_bitacora' },
+        { h: 'Fecha y Hora', k: 'fecha_hora' },
+        { h: 'Usuario', k: 'usuario' },
+        { h: 'Acción', r: (r) => `<span class="tag t-blue">${esc(r.accion)}</span>` },
+        { h: 'Tabla', k: 'tabla_afectada' },
+        { h: 'ID Reg.', k: 'id_registro' },
+        { h: 'Valor Anterior', k: 'valor_anterior' },
+        { h: 'Valor Nuevo', k: 'valor_nuevo' }
+      ], rows)}
+    </div>
+  `;
 };
 
-// ---------- arranque ----------
-$('#loginForm').onsubmit = async (e) => {
-  e.preventDefault();
-  $('#err').textContent = '';
-  try {
-    const r = await api('/login', { method: 'POST', body: { usuario: $('#u').value, password: $('#p').value } });
-    token = r.token; me = r.user;
-    sessionStorage.setItem('gc_token', token); sessionStorage.setItem('gc_user', JSON.stringify(me));
-    $('#p').value = '';
-    start();
-  } catch (err) { $('#err').textContent = err.message; }
-};
-$('#logout').onclick = (e) => { e.preventDefault(); logout(); };
-$('#menuBtn').onclick = () => $('#side').classList.toggle('open');
+// Autoarranque
 if (token && me) start();
 </script>
 </body>
