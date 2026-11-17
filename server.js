@@ -97,15 +97,21 @@ function auth(...roles) {
 // ---------- app ----------
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '100kb' }));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  if (req.path.startsWith('/api')) res.setHeader('Cache-Control', 'no-store');
   next();
 });
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'gascontrol', time: new Date().toISOString() });
+});
 
 // ---------- login ----------
 const intentos = new Map();
@@ -251,6 +257,22 @@ app.get('/api/ventas', auth(), ah(async (req, res) => {
     }
   );
   res.json(rows);
+}));
+
+app.get('/api/ventas/resumen', auth(), ah(async (req, res) => {
+  const { fecha } = req.query;
+  if (fecha && !isDate(fecha)) bad('Fecha no válida.');
+  const uid = req.user.rol === R.DESP ? req.user.id : null;
+  const [summary] = await run(
+    `SELECT COUNT(*) AS num_ventas, ISNULL(SUM(v.monto), 0) AS monto_total
+       FROM dbo.venta v
+       JOIN dbo.turno t ON t.id_turno = v.id_turno
+      WHERE v.estado = N'Realizada'
+        AND CAST(v.fecha_hora AS DATE) = ISNULL(CAST(@fecha AS DATE), CAST(${MX_NOW} AS DATE))
+        AND (@uid IS NULL OR t.id_usuario = @uid)`,
+    { fecha: [sql.VarChar(10), fecha || null], uid: [sql.Int, uid] }
+  );
+  res.json({ num_ventas: Number(summary?.num_ventas || 0), monto_total: Number(summary?.monto_total || 0) });
 }));
 
 app.post('/api/ventas', auth(R.DESP, R.SUP), ah(async (req, res) => {
@@ -667,6 +689,9 @@ app.get('/api/vehiculos/:id/historial', auth(), ah(async (req, res) => {
 // ---------- errores ----------
 app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && Object.prototype.hasOwnProperty.call(err, 'body')) {
+    return res.status(400).json({ error: 'El cuerpo de la solicitud no contiene JSON válido.' });
+  }
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
   const n = err.number ?? err.originalError?.info?.number;
   if (n >= 51000 && n <= 51999) return res.status(400).json({ error: err.message }); // reglas de negocio (THROW en triggers/SP)

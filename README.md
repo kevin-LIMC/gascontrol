@@ -19,6 +19,8 @@ Página web + API (Node.js/Express) para tu base de datos **GasControl** en **Az
    Pone la contraseña `GasControl2026!` a los 6 usuarios de ejemplo (o pásala tú: `npm run set-passwords -- "OtraClave123"`).
 5. `npm start` y abre http://localhost:3000
 
+Comprobación rápida del servicio: `curl http://localhost:3000/health`. La respuesta debe incluir `"ok":true`.
+
 Usuarios de ejemplo: `admin`, `supervisor1`, `despachador1`, `despachador2`, `gerente1`, `contador1`.
 
 ## Qué puede hacer cada rol
@@ -46,3 +48,10 @@ Usuarios de ejemplo: `admin`, `supervisor1`, `despachador1`, `despachador2`, `ge
 - El total teórico del corte (`sp_cerrar_turno`) suma **todas** las ventas, no solo efectivo; la caja real debe capturarse con ese criterio.
 - Una venta de un turno ya cerrado no se puede cancelar (para no alterar el corte).
 - Para producción: usa HTTPS (por ejemplo, Azure App Service), una `JWT_SECRET` fuerte y un usuario SQL con permisos solo sobre esta base. Los tokens duran 8 horas.
+
+## Mejoras incluidas
+
+- El panel calcula las ventas del día desde la base de datos; ya no muestra estimaciones ni datos de demostración cuando no hay registros.
+- La API publica `/health`, desactiva el almacenamiento en caché de respuestas `/api` y devuelve un mensaje claro para JSON inválido.
+- La navegación móvil tiene mejor soporte de teclado, foco visible y estado accesible del menú.
+- Las rutas del sitio están declaradas en `public/manus-routes.json` para Preview y publicación.

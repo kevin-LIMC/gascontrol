@@ -105,6 +105,10 @@
     border-color: var(--brand);
     box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.12);
   }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+    outline: 3px solid rgba(0, 102, 255, 0.35);
+    outline-offset: 2px;
+  }
 
   /* Botones */
   .btn {
@@ -394,6 +398,20 @@
     #menuBtn { display: inline-flex; }
     .grid-2col, .grid-2col-equal { grid-template-columns: 1fr; }
   }
+  @media (max-width: 560px) {
+    .top-header { align-items: flex-start; gap: 10px; }
+    .top-header-right { gap: 6px; }
+    .date-badge { padding: 6px 8px; font-size: 0.72rem; }
+    .date-badge span:first-child { display: none; }
+    .top-header h2 { font-size: 1.1rem; }
+    .hero-banner { padding: 20px; align-items: flex-start; gap: 14px; flex-direction: column; }
+    .hero-title { font-size: 1.35rem; }
+    .form-row > div { min-width: 100%; }
+    .form-row > .btnbox { min-width: 100%; }
+    .form-row > .btnbox .btn { width: 100%; }
+    .card { padding: 16px; }
+    .kpi-card { padding: 14px; }
+  }
 </style>
 </head>
 <body>
@@ -439,7 +457,7 @@
   <main>
     <div class="top-header">
       <div class="top-header-left">
-        <button class="btn sec sm" id="menuBtn">☰ Menú</button>
+        <button class="btn sec sm" id="menuBtn" aria-label="Abrir menú de navegación" aria-controls="side" aria-expanded="false">☰ Menú</button>
         <h2 id="topTitle">Panel Principal</h2>
       </div>
       <div class="top-header-right">
@@ -452,7 +470,7 @@
     <div id="view"></div>
   </main>
 </div>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 'use strict';
@@ -497,9 +515,13 @@ function exportCSV(filename, cols, rows) {
   URL.revokeObjectURL(url);
 }
 
-// Estado de sesión
-let token = sessionStorage.getItem('gc_token');
-let me = JSON.parse(sessionStorage.getItem('gc_user') || 'null');
+// Estado de sesión: una sesión corrupta no debe impedir que cargue el login.
+const readSession = (key) => {
+  try { return sessionStorage.getItem(key); } catch (_) { return null; }
+};
+let token = readSession('gc_token');
+let me = null;
+try { me = JSON.parse(readSession('gc_user') || 'null'); } catch (_) { me = null; }
 let CAT = null;
 
 async function cat(force = false) {
@@ -565,6 +587,7 @@ function buildNav() {
     const a = e.target.closest('a');
     if (a) go(a.dataset.p);
     $('#side').classList.remove('open');
+    $('#menuBtn').setAttribute('aria-expanded', 'false');
   };
   return items[0].id;
 }
@@ -605,7 +628,10 @@ function logout() {
   $('#login').classList.remove('hide');
 }
 
-$('#menuBtn').onclick = () => $('#side').classList.toggle('open');
+$('#menuBtn').onclick = () => {
+  const open = $('#side').classList.toggle('open');
+  $('#menuBtn').setAttribute('aria-expanded', String(open));
+};
 $('#logout').onclick = logout;
 
 $('#loginForm').onsubmit = (e) => {
@@ -751,10 +777,10 @@ pages.dashboard = async () => {
     new Chart(ctx, {
       type: 'line',
       data: {
-        labels: labels.length ? labels : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+        labels: labels.length ? labels : ['Sin datos'],
         datasets: [{
           label: 'Litros',
-          data: dataPts.length ? dataPts : [1200, 1900, 1500, 2200, 2800, 3100],
+          data: dataPts.length ? dataPts : [0],
           borderColor: '#0066ff',
           backgroundColor: 'rgba(0, 102, 255, 0.08)',
           fill: true,
@@ -944,12 +970,16 @@ pages.ventas = async () => {
     const qs = new URLSearchParams();
     if ($('#ff').value) qs.set('fecha', $('#ff').value);
     if ($('#fe').value) qs.set('estado', $('#fe').value);
-    ultimasVentas = await api('/ventas?' + qs);
+    const [rows, resumenDia] = await Promise.all([
+      api('/ventas?' + qs),
+      api('/ventas/resumen?fecha=' + encodeURIComponent(today()))
+    ]);
+    ultimasVentas = rows;
 
     const sumTot = ultimasVentas.reduce((a, r) => a + (r.estado === 'Realizada' ? Number(r.monto) : 0), 0);
     const count = ultimasVentas.filter(r => r.estado === 'Realizada').length;
     if ($('#kpiTot')) $('#kpiTot').textContent = money(sumTot);
-    if ($('#kpiDia')) $('#kpiDia').textContent = money(sumTot * 0.45); // estimado del día
+    if ($('#kpiDia')) $('#kpiDia').textContent = money(resumenDia.monto_total);
     if ($('#kpiAvg')) $('#kpiAvg').textContent = money(count ? sumTot / count : 0);
 
     $('#vlist').innerHTML = table([
@@ -1631,10 +1661,10 @@ pages.reportes = async () => {
       new Chart(ctxR, {
         type: 'bar',
         data: {
-          labels: labels.length ? labels : ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+          labels: labels.length ? labels : ['Sin datos'],
           datasets: [{
             label: 'Monto ($)',
-            data: vals.length ? vals : [25000, 48000, 32000, 64000],
+            data: vals.length ? vals : [0],
             backgroundColor: '#0066ff',
             borderRadius: 6
           }]
