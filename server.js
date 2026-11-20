@@ -279,6 +279,28 @@ app.get('/api/ventas/resumen', auth(), ah(async (req, res) => {
   res.json({ num_ventas: Number(summary?.num_ventas || 0), monto_total: Number(summary?.monto_total || 0) });
 }));
 
+app.get('/api/ventas/resumen-mensual', auth(), ah(async (req, res) => {
+  const uid = req.user.rol === R.DESP ? req.user.id : null;
+  const rows = await run(
+    `SELECT CONVERT(CHAR(7), v.fecha_hora, 126) AS periodo,
+            COUNT(*) AS num_ventas,
+            ISNULL(SUM(v.monto), 0) AS monto_total
+       FROM dbo.venta v
+       JOIN dbo.turno t ON t.id_turno = v.id_turno
+      WHERE v.estado = N'Realizada'
+        AND v.fecha_hora >= DATEADD(MONTH, -5, DATEFROMPARTS(YEAR(${MX_NOW}), MONTH(${MX_NOW}), 1))
+        AND (@uid IS NULL OR t.id_usuario = @uid)
+      GROUP BY CONVERT(CHAR(7), v.fecha_hora, 126)
+      ORDER BY periodo`,
+    { uid: [sql.Int, uid] }
+  );
+  res.json(rows.map((r) => ({
+    periodo: r.periodo,
+    num_ventas: Number(r.num_ventas || 0),
+    monto_total: Number(r.monto_total || 0),
+  })));
+}));
+
 app.post('/api/ventas', auth(R.DESP, R.SUP), ah(async (req, res) => {
   const idTurno = int(req.body.id_turno, 'Turno');
   const idBomba = int(req.body.id_bomba, 'Bomba');
