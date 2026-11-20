@@ -848,6 +848,8 @@ pages.ventas = async () => {
   const bombas = c.bombas.filter((b) => b.estado === 'Activa');
   const vehiculos = c.vehiculos || [];
   let ultimasVentas = [];
+  let ventasMes = [];
+  let chartVentasMes = null;
 
   $('#view').innerHTML = `
     <div class="kpi-grid" id="ventasKpis">
@@ -1006,11 +1008,13 @@ pages.ventas = async () => {
     const qs = new URLSearchParams();
     if ($('#ff').value) qs.set('fecha', $('#ff').value);
     if ($('#fe').value) qs.set('estado', $('#fe').value);
-    const [rows, resumenDia] = await Promise.all([
+    const [rows, resumenDia, resumenMes] = await Promise.all([
       api('/ventas?' + qs),
-      api('/ventas/resumen?fecha=' + encodeURIComponent(today()))
+      api('/ventas/resumen?fecha=' + encodeURIComponent(today())),
+      api('/ventas/resumen-mensual')
     ]);
     ultimasVentas = rows;
+    ventasMes = resumenMes;
 
     const sumTot = ultimasVentas.reduce((a, r) => a + (r.estado === 'Realizada' ? Number(r.monto) : 0), 0);
     const count = ultimasVentas.filter(r => r.estado === 'Realizada').length;
@@ -1028,6 +1032,36 @@ pages.ventas = async () => {
       { h: 'Estado', r: (r) => tag(r.estado) },
       ...(can(2) ? [{ h: '', r: (r) => r.estado === 'Realizada' ? `<button class="btn danger sm" data-c="${r.id_venta}">Cancelar</button>` : '' }] : [])
     ], ultimasVentas);
+    renderChartVentasMes();
+  }
+
+  function renderChartVentasMes() {
+    const ctxV = document.getElementById('chartVentasMes');
+    if (!ctxV || !window.Chart) return;
+    if (chartVentasMes) chartVentasMes.destroy();
+    const labels = ventasMes.length ? ventasMes.map((x) => x.periodo) : ['Sin ventas'];
+    const data = ventasMes.length ? ventasMes.map((x) => Number(x.monto_total)) : [0];
+    chartVentasMes = new Chart(ctxV, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Ventas ($)',
+          data,
+          backgroundColor: '#0066ff',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' } },
+          x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
   }
 
   $('#fb').onclick = (e) => act(e.target, loadVentas);
@@ -1055,31 +1089,6 @@ pages.ventas = async () => {
 
   await loadVentas();
 
-  // Gráfica de barras en Ventas
-  const ctxV = document.getElementById('chartVentasMes');
-  if (ctxV && window.Chart) {
-    new Chart(ctxV, {
-      type: 'bar',
-      data: {
-        labels: ['Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov'],
-        datasets: [{
-          label: 'Ventas ($)',
-          data: [45000, 68000, 89000, 78000, 95000, 125750],
-          backgroundColor: '#0066ff',
-          borderRadius: 6
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' } },
-          x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-        }
-      }
-    });
-  }
 };
 
 // 3. FLOTILLAS Y VEHÍCULOS
