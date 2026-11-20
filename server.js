@@ -333,9 +333,11 @@ app.post('/api/ventas', auth(R.DESP, R.SUP), ah(async (req, res) => {
     const folio = `GC-${fecha}-${String(sig).padStart(4, '0')}`;
 
     const [v] = await run(
-      `INSERT INTO dbo.venta (id_turno, id_bomba, id_combustible, litros, monto, fecha_hora, folio, id_vehiculo, odometro, tanque_lleno)
-       OUTPUT INSERTED.id_venta, INSERTED.folio
-       VALUES (@t, @b, @c, @l, @m, ${MX_NOW}, @f, @veh, @odo, @lleno)`,
+      `DECLARE @venta_insertada TABLE (id_venta INT, folio VARCHAR(30));
+       INSERT INTO dbo.venta (id_turno, id_bomba, id_combustible, litros, monto, fecha_hora, folio, id_vehiculo, odometro, tanque_lleno)
+       OUTPUT INSERTED.id_venta, INSERTED.folio INTO @venta_insertada
+       VALUES (@t, @b, @c, @l, @m, ${MX_NOW}, @f, @veh, @odo, @lleno);
+       SELECT id_venta, folio FROM @venta_insertada;`,
       {
         t: [sql.Int, idTurno], b: [sql.Int, idBomba], c: [sql.Int, b.id_combustible],
         l: [sql.Decimal(10, 3), litros], m: [sql.Decimal(10, 2), monto], f: folio,
