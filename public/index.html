@@ -144,8 +144,7 @@
 
   /* Layout */
   #app {
-    display: grid;
-    grid-template-columns: 240px 1fr;
+    display: block;
     min-height: 100vh;
     width: 100%;
     min-width: 0;
@@ -154,9 +153,12 @@
     background: var(--side);
     color: var(--side-mut);
     padding: 24px 14px;
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 0;
+    width: 240px;
     height: 100vh;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     z-index: 10;
@@ -224,6 +226,8 @@
     width: 100%;
     min-width: 0;
     overflow-x: hidden;
+    margin-left: 240px;
+    width: calc(100% - 240px);
   }
   .top-header {
     display: flex;
@@ -394,7 +398,7 @@
   #menuBtn { display: none; }
 
   @media (max-width: 950px) {
-    #app { grid-template-columns: 1fr; }
+    #app { display: block; }
     aside {
       position: fixed;
       inset: 0 20% 0 0;
@@ -403,7 +407,7 @@
       box-shadow: 10px 0 30px rgba(0,0,0,0.3);
     }
     aside.open { transform: none; }
-    main { padding: 16px; }
+    main { padding: 16px; margin-left: 0; width: 100%; }
     #menuBtn { display: inline-flex; }
     .grid-2col, .grid-2col-equal { grid-template-columns: 1fr; }
     .card-header { align-items: flex-start; flex-wrap: wrap; }
@@ -814,8 +818,12 @@ pages.dashboard = async () => {
   // Gráfica de consumo
   const ctx = document.getElementById('chartConsumo');
   if (ctx && window.Chart) {
-    const labels = consumo.length ? consumo.map(x => x.periodo) : ['Sin datos'];
-    const dataPts = consumo.length ? consumo.map(x => Number(x.litros)) : [0];
+    const datosConsumo = consumo.filter((x) => Number(x.litros) > 0);
+    if (!datosConsumo.length) {
+      ctx.parentElement.innerHTML = '<div class="empty">Sin ventas reales para mostrar consumo.</div>';
+    } else {
+    const labels = datosConsumo.map(x => x.periodo);
+    const dataPts = datosConsumo.map(x => Number(x.litros));
     new Chart(ctx, {
       type: 'line',
       data: {
@@ -841,6 +849,7 @@ pages.dashboard = async () => {
         }
       }
     });
+    }
   }
 };
 
@@ -1045,8 +1054,13 @@ pages.ventas = async () => {
     const ctxV = document.getElementById('chartVentasMes');
     if (!ctxV || !window.Chart) return;
     if (chartVentasMes) chartVentasMes.destroy();
-    const labels = ventasMes.length ? ventasMes.map((x) => x.periodo) : ['Sin ventas'];
-    const data = ventasMes.length ? ventasMes.map((x) => Number(x.monto_total)) : [0];
+    const datosVentasMes = ventasMes.filter((x) => Number(x.monto_total) > 0);
+    if (!datosVentasMes.length) {
+      ctxV.parentElement.innerHTML = '<div class="empty">Sin ventas reales para mostrar.</div>';
+      return;
+    }
+    const labels = datosVentasMes.map((x) => x.periodo);
+    const data = datosVentasMes.map((x) => Number(x.monto_total));
     chartVentasMes = new Chart(ctxV, {
       type: 'bar',
       data: {
@@ -1724,8 +1738,13 @@ pages.reportes = async () => {
     const ctxR = document.getElementById('chartRepVentas');
     if (ctxR && window.Chart) {
       if (chartRepVentas) chartRepVentas.destroy();
-      const labels = periodos.length ? periodos.map(x => String(x.fecha).slice(5)) : ['Sin datos'];
-      const vals = periodos.length ? periodos.map(x => Number(x.monto)) : [0];
+      const datosPeriodo = periodos.filter((x) => Number(x.monto) > 0);
+      if (!datosPeriodo.length) {
+        ctxR.parentElement.innerHTML = '<div class="empty">Sin ventas reales en el período seleccionado.</div>';
+        return;
+      }
+      const labels = datosPeriodo.map(x => String(x.fecha).slice(5));
+      const vals = datosPeriodo.map(x => Number(x.monto));
       chartRepVentas = new Chart(ctxR, {
         type: 'bar',
         data: {
