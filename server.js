@@ -197,9 +197,11 @@ app.post('/api/turnos', auth(R.SUP), ah(async (req, res) => {
       { id: [sql.Int, idDesp] }, tx);
     if (abierto.length) bad('Ese despachador ya tiene un turno abierto.', 409);
     const [t] = await run(
-      `INSERT INTO dbo.turno (id_usuario, id_supervisor, fecha, hora_inicio, fondo_inicial)
-       OUTPUT INSERTED.id_turno
-       VALUES (@d, @s, CAST(${MX_NOW} AS DATE), CONVERT(TIME(0), ${MX_NOW}), @f)`,
+      `DECLARE @turno_insertado TABLE (id_turno INT);
+       INSERT INTO dbo.turno (id_usuario, id_supervisor, fecha, hora_inicio, fondo_inicial)
+       OUTPUT INSERTED.id_turno INTO @turno_insertado
+       VALUES (@d, @s, CAST(${MX_NOW} AS DATE), CONVERT(TIME(0), ${MX_NOW}), @f);
+       SELECT id_turno FROM @turno_insertado;`,
       { d: [sql.Int, idDesp], s: [sql.Int, req.user.id], f: [sql.Decimal(10, 2), round2(fondo)] }, tx);
     await audit(tx, req.user, 'ABRIR_TURNO', 'turno', t.id_turno, null, `despachador=${idDesp}; fondo=${round2(fondo)}`);
     return t;
@@ -400,8 +402,11 @@ app.post('/api/cargas', auth(R.SUP), ah(async (req, res) => {
     const libre = Number(t.capacidad) - Number(t.nivel_actual);
     if (litros > libre) bad(`La carga excede la capacidad del tanque. Espacio disponible: ${libre.toFixed(2)} L.`);
     const [c] = await run(
-      `INSERT INTO dbo.carga_combustible (id_tanque, id_proveedor, litros, fecha, documento)
-       OUTPUT INSERTED.id_carga VALUES (@t, @p, @l, ${MX_NOW}, @d)`,
+      `DECLARE @carga_insertada TABLE (id_carga INT);
+       INSERT INTO dbo.carga_combustible (id_tanque, id_proveedor, litros, fecha, documento)
+       OUTPUT INSERTED.id_carga INTO @carga_insertada
+       VALUES (@t, @p, @l, ${MX_NOW}, @d);
+       SELECT id_carga FROM @carga_insertada;`,
       { t: [sql.Int, idTanque], p: [sql.Int, idProv], l: [sql.Decimal(10, 2), litros], d: doc }, tx);
     await audit(tx, req.user, 'CARGA_COMBUSTIBLE', 'carga_combustible', c.id_carga, null, `tanque=${idTanque}; ${litros} L; doc=${doc}`);
     return c;
@@ -448,8 +453,11 @@ app.post('/api/facturas', auth(R.CONT), ah(async (req, res) => {
     if (ya.length) bad('Esa venta ya tiene factura.', 409);
     const folioFiscal = crypto.randomUUID().toUpperCase(); // folio de ejemplo; no es un CFDI timbrado
     const [f] = await run(
-      `INSERT INTO dbo.factura (id_venta, id_cliente, folio_fiscal, fecha_emision)
-       OUTPUT INSERTED.id_factura, INSERTED.folio_fiscal VALUES (@v, @c, @ff, ${MX_NOW})`,
+      `DECLARE @factura_insertada TABLE (id_factura INT, folio_fiscal NVARCHAR(100));
+       INSERT INTO dbo.factura (id_venta, id_cliente, folio_fiscal, fecha_emision)
+       OUTPUT INSERTED.id_factura, INSERTED.folio_fiscal INTO @factura_insertada
+       VALUES (@v, @c, @ff, ${MX_NOW});
+       SELECT id_factura, folio_fiscal FROM @factura_insertada;`,
       { v: [sql.Int, idVenta], c: [sql.Int, idCliente], ff: folioFiscal }, tx);
     await audit(tx, req.user, 'EMITIR_FACTURA', 'factura', f.id_factura, null, `venta=${v.folio}; cliente=${idCliente}`);
     return f;
@@ -460,7 +468,11 @@ app.post('/api/facturas', auth(R.CONT), ah(async (req, res) => {
 app.post('/api/facturas/:id/cancelar', auth(R.CONT), ah(async (req, res) => {
   const id = int(req.params.id, 'Factura');
   const r = await run(
-    `UPDATE dbo.factura SET estado = N'Cancelada' OUTPUT INSERTED.id_factura WHERE id_factura = @id AND estado = N'Emitida'`,
+    `DECLARE @factura_cancelada TABLE (id_factura INT);
+     UPDATE dbo.factura SET estado = N'Cancelada'
+       OUTPUT INSERTED.id_factura INTO @factura_cancelada
+       WHERE id_factura = @id AND estado = N'Emitida';
+     SELECT id_factura FROM @factura_cancelada;`,
     { id: [sql.Int, id] });
   if (!r.length) bad('La factura no existe o ya está cancelada.', 409);
   await audit(pool, req.user, 'CANCELAR_FACTURA', 'factura', id, 'Emitida', 'Cancelada');
@@ -475,7 +487,11 @@ app.post('/api/clientes', auth(R.CONT), ah(async (req, res) => {
   if (!/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc)) bad('El RFC no tiene un formato válido.');
   if (convenio && convenio.length > 80) bad('El convenio es demasiado largo (máx. 80).');
   const [c] = await run(
-    'INSERT INTO dbo.cliente (razon_social, rfc, convenio) OUTPUT INSERTED.id_cliente VALUES (@r, @f, @c)',
+    `DECLARE @cliente_insertado TABLE (id_cliente INT);
+     INSERT INTO dbo.cliente (razon_social, rfc, convenio)
+     OUTPUT INSERTED.id_cliente INTO @cliente_insertado
+     VALUES (@r, @f, @c);
+     SELECT id_cliente FROM @cliente_insertado`,
     { r: razon, f: rfc, c: [sql.NVarChar(80), convenio] });
   await audit(pool, req.user, 'ALTA_CLIENTE', 'cliente', c.id_cliente, null, `${razon} (${rfc})`);
   res.status(201).json(c);
@@ -505,7 +521,11 @@ app.post('/api/usuarios', auth(), ah(async (req, res) => {
   if (idRol > 5) bad('Rol no válido.');
   const hash = await bcrypt.hash(password, 10);
   const [u] = await run(
-    'INSERT INTO dbo.usuario (nombre, usuario, password_hash, id_rol) OUTPUT INSERTED.id_usuario VALUES (@n, @u, @h, @r)',
+    `DECLARE @usuario_insertado TABLE (id_usuario INT);
+     INSERT INTO dbo.usuario (nombre, usuario, password_hash, id_rol)
+     OUTPUT INSERTED.id_usuario INTO @usuario_insertado
+     VALUES (@n, @u, @h, @r);
+     SELECT id_usuario FROM @usuario_insertado`,
     { n: nombre, u: usuario, h: hash, r: [sql.Int, idRol] });
   await audit(pool, req.user, 'ALTA_USUARIO', 'usuario', u.id_usuario, null, `${usuario}; rol=${idRol}`);
   res.status(201).json(u);
@@ -604,9 +624,11 @@ app.post('/api/vehiculos', auth(R.SUP, R.GER, R.CONT), ah(async (req, res) => {
   if (!modelo || modelo.length > 80) bad('Indica marca y modelo (máx 80 caracteres).');
 
   const [v] = await run(`
+    DECLARE @vehiculo_insertado TABLE (id_vehiculo INT, placas VARCHAR(15));
     INSERT INTO dbo.vehiculo (id_cliente, placas, marca_modelo, capacidad_tanque, odometro_actual)
-    OUTPUT INSERTED.id_vehiculo, INSERTED.placas
-    VALUES (@c, @p, @m, @cap, @o)
+    OUTPUT INSERTED.id_vehiculo, INSERTED.placas INTO @vehiculo_insertado
+    VALUES (@c, @p, @m, @cap, @o);
+    SELECT id_vehiculo, placas FROM @vehiculo_insertado;
   `, {
     c: [sql.Int, idCliente],
     p: placas,
