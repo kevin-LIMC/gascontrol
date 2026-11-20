@@ -652,6 +652,18 @@ app.patch('/api/vehiculos/:id', auth(R.SUP, R.GER, R.CONT), ah(async (req, res) 
   res.json({ ok: true });
 }));
 
+// No se borra físicamente para conservar las ventas e historial del vehículo.
+app.delete('/api/vehiculos/:id', auth(R.SUP, R.GER, R.CONT), ah(async (req, res) => {
+  const id = int(req.params.id, 'Vehículo');
+  const [ant] = await run('SELECT id_vehiculo, placas, activo FROM dbo.vehiculo WHERE id_vehiculo = @id', { id: [sql.Int, id] });
+  if (!ant) bad('El vehículo no existe.', 404);
+  if (!ant.activo) bad('El vehículo ya está desactivado.', 409);
+
+  await run('UPDATE dbo.vehiculo SET activo = 0 WHERE id_vehiculo = @id', { id: [sql.Int, id] });
+  await audit(pool, req.user, 'BAJA_VEHICULO', 'vehiculo', id, 'Activo', `Inactivo; placas=${ant.placas}`);
+  res.json({ ok: true, id_vehiculo: id, activo: false });
+}));
+
 app.get('/api/vehiculos/:id/historial', auth(), ah(async (req, res) => {
   const id = int(req.params.id, 'Vehículo');
   const [veh] = await run(
