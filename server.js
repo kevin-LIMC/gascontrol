@@ -100,6 +100,8 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '100kb' }));
 app.use((req, res, next) => {
+  req.requestId = crypto.randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
@@ -697,13 +699,23 @@ app.use((err, req, res, next) => {
   if (n >= 51000 && n <= 51999) return res.status(400).json({ error: err.message }); // reglas de negocio (THROW en triggers/SP)
   if (n === 2627 || n === 2601) return res.status(409).json({ error: 'Ya existe un registro con ese valor único (usuario, RFC, folio…).' });
   if (n === 547) return res.status(409).json({ error: 'La operación viola una restricción de la base de datos.' });
-  console.error(err);
-  res.status(500).json({ error: 'Error interno del servidor' });
+  console.error(`[${req.requestId}] ${req.method} ${req.originalUrl}`, {
+    message: err.message,
+    code: err.code,
+    number: n,
+    state: err.state,
+    class: err.class,
+    procedure: err.procName || err.originalError?.info?.procName,
+    line: err.lineNumber || err.originalError?.info?.lineNumber,
+    original: err.originalError?.message,
+    stack: err.stack,
+  });
+  res.status(500).json({ error: 'Error interno del servidor', codigo: req.requestId });
 });
 
 async function initSchema() {
-  try {
-    await run(`
+  const migrations = [
+    [`tabla vehiculo`, `
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'vehiculo' AND schema_id = SCHEMA_ID('dbo'))
       BEGIN
         CREATE TABLE dbo.vehiculo (
@@ -721,26 +733,24 @@ async function initSchema() {
           CONSTRAINT ck_vehiculo_capacidad CHECK (capacidad_tanque > 0),
           CONSTRAINT ck_vehiculo_odometro CHECK (odometro_actual >= 0)
         );
-      END;
-
+      END;`],
+    [`venta.id_vehiculo`, `
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE name = 'id_vehiculo' AND object_id = OBJECT_ID('dbo.venta'))
-      BEGIN
-        ALTER TABLE dbo.venta ADD id_vehiculo INT NULL CONSTRAINT fk_venta_vehiculo FOREIGN KEY REFERENCES dbo.vehiculo(id_vehiculo);
-      END;
-
+        ALTER TABLE dbo.venta ADD id_vehiculo INT NULL CONSTRAINT fk_venta_vehiculo FOREIGN KEY REFERENCES dbo.vehiculo(id_vehiculo);`],
+    [`venta.odometro`, `
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE name = 'odometro' AND object_id = OBJECT_ID('dbo.venta'))
-      BEGIN
-        ALTER TABLE dbo.venta ADD odometro INT NULL;
-      END;
-
+        ALTER TABLE dbo.venta ADD odometro INT NULL;`],
+    [`venta.tanque_lleno`, `
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE name = 'tanque_lleno' AND object_id = OBJECT_ID('dbo.venta'))
-      BEGIN
-        ALTER TABLE dbo.venta ADD tanque_lleno BIT NOT NULL DEFAULT 1;
-      END;
-    `);
-    console.log('Esquema de vehículos verificado/inicializado en Azure SQL.');
-  } catch (e) {
-    console.warn('Aviso al verificar esquema de vehículos:', e.message);
+        ALTER TABLE dbo.venta ADD tanque_lleno BIT NOT NULL DEFAULT 1;`],
+  ];
+  for (const [name, statement] of migrations) {
+    try {
+      await run(statement);
+      console.log(`Esquema verificado: ${name}`);
+    } catch (e) {
+      console.warn(`Aviso al verificar ${name}:`, e.message);
+    }
   }
 }
 
