@@ -34,6 +34,7 @@
     --kpi-purple-ink: #6b21a8;
   }
   * { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; }
   body {
     margin: 0;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
@@ -219,6 +220,7 @@
     padding: 24px 30px;
     max-width: 1400px;
     width: 100%;
+    min-width: 0;
   }
   .top-header {
     display: flex;
@@ -265,8 +267,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 10px;
     margin-bottom: 14px;
   }
+  .card-header h3 { min-width: 0; }
 
   /* KPIs estilo pastel del mockup */
   .kpi-grid {
@@ -397,6 +401,32 @@
     main { padding: 16px; }
     #menuBtn { display: inline-flex; }
     .grid-2col, .grid-2col-equal { grid-template-columns: 1fr; }
+    .card-header { align-items: flex-start; flex-wrap: wrap; }
+    .card-header > .btn, .card-header > .tag { margin-left: auto; }
+  }
+  @media (max-width: 700px) {
+    main { padding: 12px; }
+    .top-header { flex-wrap: wrap; }
+    .top-header-left { min-width: 0; flex: 1 1 100%; }
+    .top-header-right { width: 100%; justify-content: space-between; }
+    .top-header h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hero-banner { padding: 18px; }
+    .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .kpi-card { padding: 12px; gap: 10px; min-width: 0; }
+    .kpi-icon-box { width: 38px; height: 38px; font-size: 17px; }
+    .kpi-body { min-width: 0; }
+    .kpi-body small { font-size: .68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .kpi-body b { font-size: 1.1rem; }
+    .form-row { gap: 8px; }
+    .form-row > div, .form-row > .btnbox { min-width: 0; flex: 1 1 100%; }
+    .form-row > .btnbox .btn { width: 100%; }
+    .card { padding: 14px; border-radius: 12px; }
+    .card-header > .btn, .card-header > .tag { margin-left: 0; }
+    .tw { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 620px; font-size: .78rem; }
+    th, td { padding: 8px 9px; }
+    #chartRepVentas, #chartVentasMes { max-width: 100%; }
+    .btn { max-width: 100%; }
   }
   @media (max-width: 560px) {
     .top-header { align-items: flex-start; gap: 10px; }
@@ -406,11 +436,14 @@
     .top-header h2 { font-size: 1.1rem; }
     .hero-banner { padding: 20px; align-items: flex-start; gap: 14px; flex-direction: column; }
     .hero-title { font-size: 1.35rem; }
-    .form-row > div { min-width: 100%; }
-    .form-row > .btnbox { min-width: 100%; }
-    .form-row > .btnbox .btn { width: 100%; }
     .card { padding: 16px; }
     .kpi-card { padding: 14px; }
+  }
+  @media (max-width: 390px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .top-header-right .date-badge { flex: 1; justify-content: center; }
+    .top-header-right .user-top-avatar { flex: 0 0 36px; }
+    .hero-title { font-size: 1.2rem; }
   }
 </style>
 </head>
@@ -1163,7 +1196,10 @@ pages.vehiculos = async () => {
       { h: 'Odómetro', n: 1, r: (r) => num(r.odometro_actual, 0) + ' km' },
       { h: 'Rendimiento', n: 1, r: (r) => r.rendimiento_kml ? `<b style="color:var(--brand)">${num(r.rendimiento_kml, 2)} km/L</b>` : '<span class="muted">Calculando…</span>' },
       { h: 'Estado', r: (r) => tag(r.activo ? 'Activo' : 'Inactivo') },
-      { h: 'Acción', r: (r) => `<button class="btn sec sm" data-hveh="${r.id_vehiculo}">Historial</button>` }
+      { h: 'Acciones', r: (r) => `
+        <button class="btn sec sm" data-hveh="${r.id_vehiculo}">Historial</button>
+        ${r.activo ? `<button class="btn danger sm" data-delveh="${r.id_vehiculo}">Borrar</button>` : ''}
+      ` }
     ], list, 'No hay vehículos registrados en el sistema');
   }
 
@@ -1205,6 +1241,17 @@ pages.vehiculos = async () => {
 
   $('#view').onclick = async (e) => {
     const btnHist = e.target.closest('[data-hveh]');
+    const btnDel = e.target.closest('[data-delveh]');
+    if (btnDel) {
+      const vehiculo = vehiculos.find((v) => String(v.id_vehiculo) === btnDel.dataset.delveh);
+      if (!vehiculo || !confirm(`¿Borrar el vehículo ${vehiculo.placas}? Se conservará su historial, pero no podrá seleccionarse en nuevas ventas.`)) return;
+      return act(btnDel, async () => {
+        await api(`/vehiculos/${btnDel.dataset.delveh}`, { method: 'DELETE' });
+        toast('Vehículo borrado correctamente');
+        await cat(true);
+        go('vehiculos');
+      });
+    }
     if (!btnHist) return;
     const vId = btnHist.dataset.hveh;
     $('#historialBox').innerHTML = '<div class="card"><div class="empty">Cargando historial de rendimiento…</div></div>';
@@ -1591,6 +1638,7 @@ pages.reportes = async () => {
   const hasta = today();
   const desde = new Date(Date.now() - 6 * 3600e3 - 30 * 864e5).toISOString().slice(0, 10);
   let repData = { a: [], d: [], m: [], k: [] };
+  let chartRepVentas = null;
 
   $('#view').innerHTML = `
     <div class="grid-2col">
@@ -1659,9 +1707,10 @@ pages.reportes = async () => {
     // Gráfica de reportes
     const ctxR = document.getElementById('chartRepVentas');
     if (ctxR && window.Chart) {
+      if (chartRepVentas) chartRepVentas.destroy();
       const labels = a.slice(0, 6).map(x => String(x.fecha).slice(5)).reverse();
       const vals = a.slice(0, 6).map(x => Number(x.monto)).reverse();
-      new Chart(ctxR, {
+      chartRepVentas = new Chart(ctxR, {
         type: 'bar',
         data: {
           labels: labels.length ? labels : ['Sin datos'],
