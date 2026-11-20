@@ -301,6 +301,56 @@ app.get('/api/ventas/resumen-mensual', auth(), ah(async (req, res) => {
   })));
 }));
 
+app.get('/api/ventas/consumo-mensual', auth(), ah(async (req, res) => {
+  const uid = req.user.rol === R.DESP ? req.user.id : null;
+  const rows = await run(
+    `SELECT CONVERT(CHAR(7), v.fecha_hora, 126) AS periodo,
+            ISNULL(SUM(v.litros), 0) AS litros,
+            ISNULL(SUM(v.monto), 0) AS monto
+       FROM dbo.venta v
+       JOIN dbo.turno t ON t.id_turno = v.id_turno
+      WHERE v.estado = N'Realizada'
+        AND v.fecha_hora >= DATEADD(MONTH, -5, DATEFROMPARTS(YEAR(${MX_NOW}), MONTH(${MX_NOW}), 1))
+        AND (@uid IS NULL OR t.id_usuario = @uid)
+      GROUP BY CONVERT(CHAR(7), v.fecha_hora, 126)
+      ORDER BY periodo`,
+    { uid: [sql.Int, uid] }
+  );
+  res.json(rows.map((r) => ({
+    periodo: r.periodo,
+    litros: Number(r.litros || 0),
+    monto: Number(r.monto || 0),
+  })));
+}));
+
+app.get('/api/reportes/ventas-periodo', auth(), ah(async (req, res) => {
+  const { desde, hasta } = req.query;
+  if ((desde && !isDate(desde)) || (hasta && !isDate(hasta))) bad('Rango de fechas no válido.');
+  const uid = req.user.rol === R.DESP ? req.user.id : null;
+  const rows = await run(
+    `DECLARE @d DATE = ISNULL(CAST(@desde AS DATE), DATEADD(DAY, -30, CAST(${MX_NOW} AS DATE)));
+     DECLARE @h DATE = ISNULL(CAST(@hasta AS DATE), CAST(${MX_NOW} AS DATE));
+     SELECT CAST(v.fecha_hora AS DATE) AS fecha,
+            COUNT(*) AS num_ventas,
+            ISNULL(SUM(v.litros), 0) AS litros,
+            ISNULL(SUM(v.monto), 0) AS monto
+       FROM dbo.venta v
+       JOIN dbo.turno t ON t.id_turno = v.id_turno
+      WHERE v.estado = N'Realizada'
+        AND CAST(v.fecha_hora AS DATE) BETWEEN @d AND @h
+        AND (@uid IS NULL OR t.id_usuario = @uid)
+      GROUP BY CAST(v.fecha_hora AS DATE)
+      ORDER BY fecha`,
+    { desde: [sql.VarChar(10), desde || null], hasta: [sql.VarChar(10), hasta || null], uid: [sql.Int, uid] }
+  );
+  res.json(rows.map((r) => ({
+    fecha: r.fecha,
+    num_ventas: Number(r.num_ventas || 0),
+    litros: Number(r.litros || 0),
+    monto: Number(r.monto || 0),
+  })));
+}));
+
 app.post('/api/ventas', auth(R.DESP, R.SUP), ah(async (req, res) => {
   const idTurno = int(req.body.id_turno, 'Turno');
   const idBomba = int(req.body.id_bomba, 'Bomba');
