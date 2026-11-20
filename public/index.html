@@ -688,9 +688,10 @@ const pages = {};
 
 // 1. PANEL PRINCIPAL
 pages.dashboard = async () => {
-  const [kpi, vd, inv, vehiculos] = await Promise.all([
+  const [kpi, vd, consumo, inv, vehiculos] = await Promise.all([
     api('/reportes/kpi'),
     api('/reportes/ventas-dia'),
+    api('/ventas/consumo-mensual'),
     can(2, 3, 4) ? api('/inventario') : Promise.resolve([]),
     api('/vehiculos').catch(() => [])
   ]);
@@ -808,8 +809,8 @@ pages.dashboard = async () => {
   // Gráfica de consumo
   const ctx = document.getElementById('chartConsumo');
   if (ctx && window.Chart) {
-    const labels = vd.slice(0, 7).map(x => String(x.fecha).slice(5)).reverse();
-    const dataPts = vd.slice(0, 7).map(x => Number(x.litros)).reverse();
+    const labels = consumo.length ? consumo.map(x => x.periodo) : ['Sin datos'];
+    const dataPts = consumo.length ? consumo.map(x => Number(x.litros)) : [0];
     new Chart(ctx, {
       type: 'line',
       data: {
@@ -1687,14 +1688,15 @@ pages.reportes = async () => {
 
   async function load() {
     const qs = `?desde=${$('#rd').value}&hasta=${$('#rh').value}`;
-    const [a, d, m, k, cs] = await Promise.all([
+    const [a, d, m, k, cs, periodos] = await Promise.all([
       api('/reportes/ventas-dia' + qs),
       api('/reportes/despachador' + qs),
       api('/reportes/metodo-pago' + qs),
       api('/reportes/kpi' + qs),
       can(2, 3) ? api('/reportes/cortes' + qs) : Promise.resolve(null),
+      api('/reportes/ventas-periodo' + qs),
     ]);
-    repData = { a, d, m, k, cs };
+    repData = { a, d, m, k, cs, periodos };
 
     $('#rep').innerHTML = `
       <div class="card">
@@ -1717,15 +1719,15 @@ pages.reportes = async () => {
     const ctxR = document.getElementById('chartRepVentas');
     if (ctxR && window.Chart) {
       if (chartRepVentas) chartRepVentas.destroy();
-      const labels = a.slice(0, 6).map(x => String(x.fecha).slice(5)).reverse();
-      const vals = a.slice(0, 6).map(x => Number(x.monto)).reverse();
+      const labels = periodos.length ? periodos.map(x => String(x.fecha).slice(5)) : ['Sin datos'];
+      const vals = periodos.length ? periodos.map(x => Number(x.monto)) : [0];
       chartRepVentas = new Chart(ctxR, {
         type: 'bar',
         data: {
           labels: labels.length ? labels : ['Sin datos'],
           datasets: [{
             label: 'Monto ($)',
-            data: vals.length ? vals : [0],
+            data: vals,
             backgroundColor: '#0066ff',
             borderRadius: 6
           }]
